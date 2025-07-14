@@ -1,0 +1,679 @@
+#!/bin/bash
+
+# Mac Developer Environment Setup Script - Modular Version
+# Version: 3.0
+# Last Updated: 2025-01-15
+# 
+# このスクリプトは新しいMacを開発環境として完全にセットアップします
+# 基本的なツールは自動インストール、追加ツールは選択可能です
+
+set -e  # エラーが発生したら即座に終了
+
+# カラー定義
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# ログ関数
+log() {
+    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+# プログレスバー関数
+show_progress() {
+    local current=$1
+    local total=$2
+    local width=50
+    local percentage=$((current * 100 / total))
+    local filled=$((width * current / total))
+    
+    printf "\r["
+    printf "%${filled}s" | tr ' ' '█'
+    printf "%$((width - filled))s" | tr ' ' '.'
+    printf "] %d%%" $percentage
+}
+
+# メニュー表示関数
+show_menu() {
+    echo -e "\n${CYAN}=== Mac Setup Menu ===${NC}"
+    echo "1) 基本セットアップのみ（推奨）"
+    echo "2) カスタムセットアップ（オプション選択）"
+    echo "3) フルセットアップ（すべてインストール）"
+    echo "4) 終了"
+    echo -n "選択してください [1-4]: "
+}
+
+# チェックボックスメニュー関数
+checkbox_menu() {
+    local -n options=$1
+    local -n selected=$2
+    local title=$3
+    
+    while true; do
+        clear
+        echo -e "${CYAN}=== $title ===${NC}"
+        echo "スペースキーで選択/解除、Enterで確定、qで戻る"
+        echo ""
+        
+        for i in "${!options[@]}"; do
+            if [[ " ${selected[@]} " =~ " $i " ]]; then
+                echo -e "${GREEN}[✓]${NC} $((i+1)). ${options[$i]}"
+            else
+                echo -e "[ ] $((i+1)). ${options[$i]}"
+            fi
+        done
+        
+        echo ""
+        read -n 1 -s key
+        
+        case $key in
+            q|Q) break ;;
+            "") break ;;
+            [1-9])
+                idx=$((key-1))
+                if [ $idx -lt ${#options[@]} ]; then
+                    if [[ " ${selected[@]} " =~ " $idx " ]]; then
+                        selected=("${selected[@]/$idx}")
+                    else
+                        selected+=($idx)
+                    fi
+                fi
+                ;;
+        esac
+    done
+}
+
+# macOSバージョンチェック
+check_macos_version() {
+    log "macOSバージョンをチェックしています..."
+    
+    os_version=$(sw_vers -productVersion)
+    major_version=$(echo "$os_version" | cut -d. -f1)
+    
+    if [ "$major_version" -lt 11 ]; then
+        error "macOS 11.0 (Big Sur) 以降が必要です。現在: $os_version"
+        exit 1
+    fi
+    
+    info "macOS $os_version を検出しました ✓"
+}
+
+# アーキテクチャの検出
+detect_architecture() {
+    log "システムアーキテクチャを検出しています..."
+    
+    arch=$(uname -m)
+    if [ "$arch" = "arm64" ]; then
+        HOMEBREW_PREFIX="/opt/homebrew"
+        info "Apple Silicon (M1/M2/M3) を検出しました ✓"
+    else
+        HOMEBREW_PREFIX="/usr/local"
+        info "Intel Mac を検出しました ✓"
+    fi
+}
+
+# Xcodeコマンドラインツールのインストール
+install_xcode_cli() {
+    log "Xcode Command Line Toolsをチェックしています..."
+    
+    if ! xcode-select -p &> /dev/null; then
+        info "Xcode Command Line Toolsをインストールしています..."
+        xcode-select --install
+        
+        # インストール完了を待つ
+        until xcode-select -p &> /dev/null; do
+            sleep 5
+        done
+    else
+        info "Xcode Command Line Tools は既にインストールされています ✓"
+    fi
+}
+
+# Homebrewのインストール
+install_homebrew() {
+    log "Homebrewをチェックしています..."
+    
+    if ! command -v brew &> /dev/null; then
+        info "Homebrewをインストールしています..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        
+        # パスを設定
+        if [ "$arch" = "arm64" ]; then
+            echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        else
+            echo 'eval "$(/usr/local/bin/brew shellenv)"' >> "$HOME/.zprofile"
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+    else
+        info "Homebrewは既にインストールされています ✓"
+    fi
+    
+    # Homebrewをアップデート
+    log "Homebrewをアップデートしています..."
+    brew update
+}
+
+# 基本ツールのインストール（誰でも使うもの）
+install_basic_tools() {
+    log "基本的な開発ツールをインストールしています..."
+    
+    # 基本ツールのリスト
+    local basic_tools=(
+        # Git関連
+        "git"
+        "gh"                  # GitHub CLI
+        
+        # シェル関連
+        "zsh"
+        "bash"
+        
+        # 基本的なCLIツール
+        "curl"
+        "wget"
+        "tree"
+        "jq"                  # JSON processor
+        
+        # エディタ
+        "vim"
+        "nano"
+        
+        # 圧縮・解凍
+        "unzip"
+        "p7zip"
+    )
+    
+    # 基本的なGUIアプリ
+    local basic_casks=(
+        # ターミナル
+        "iterm2"
+        
+        # エディタ
+        "visual-studio-code"
+        
+        # ブラウザ（最低限）
+        "google-chrome"
+        
+        # 生産性ツール
+        "rectangle"           # ウィンドウ管理
+        
+        # ユーティリティ
+        "the-unarchiver"      # 解凍ツール
+    )
+    
+    # Brewfileを作成
+    local brewfile="/tmp/Brewfile.basic"
+    {
+        echo '# Basic tools'
+        for tool in "${basic_tools[@]}"; do
+            echo "brew \"$tool\""
+        done
+        echo ""
+        echo '# Basic GUI apps'
+        for cask in "${basic_casks[@]}"; do
+            echo "cask \"$cask\""
+        done
+    } > "$brewfile"
+    
+    info "基本ツールをインストールしています..."
+    brew bundle install --file="$brewfile"
+    rm -f "$brewfile"
+}
+
+# プログラミング言語のオプション
+install_programming_languages() {
+    local languages=(
+        "Node.js (nvm, npm, yarn, pnpm)"
+        "Python (pyenv, pip, pipenv)"
+        "Go"
+        "Rust"
+        "Ruby (rbenv)"
+        "Java (OpenJDK)"
+        "PHP"
+        "Kotlin"
+        "Swift"
+    )
+    
+    local selected=()
+    checkbox_menu languages selected "プログラミング言語を選択"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) # Node.js
+                brew install nvm node yarn pnpm
+                ;;
+            1) # Python
+                brew install python@3.12 pyenv pipenv
+                ;;
+            2) # Go
+                brew install go
+                ;;
+            3) # Rust
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                ;;
+            4) # Ruby
+                brew install rbenv ruby-build
+                ;;
+            5) # Java
+                brew install openjdk
+                ;;
+            6) # PHP
+                brew install php composer
+                ;;
+            7) # Kotlin
+                brew install kotlin
+                ;;
+            8) # Swift
+                # Xcodeに含まれている
+                info "SwiftはXcodeに含まれています"
+                ;;
+        esac
+    done
+}
+
+# データベースのオプション
+install_databases() {
+    local databases=(
+        "PostgreSQL"
+        "MySQL"
+        "Redis"
+        "MongoDB"
+        "SQLite"
+        "Elasticsearch"
+        "Cassandra"
+        "Neo4j"
+    )
+    
+    local selected=()
+    checkbox_menu databases selected "データベースを選択"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install postgresql@16 ;;
+            1) brew install mysql ;;
+            2) brew install redis ;;
+            3) brew tap mongodb/brew && brew install mongodb-community ;;
+            4) brew install sqlite ;;
+            5) brew install elasticsearch ;;
+            6) brew install cassandra ;;
+            7) brew install neo4j ;;
+        esac
+    done
+}
+
+# 開発ツールのオプション
+install_dev_tools() {
+    local tools=(
+        "Docker Desktop"
+        "Kubernetes (kubectl, minikube, helm)"
+        "Terraform"
+        "Ansible"
+        "AWS CLI"
+        "Azure CLI"
+        "Google Cloud SDK"
+        "Postman"
+        "Insomnia"
+        "TablePlus"
+        "JetBrains Toolbox"
+        "Sublime Text"
+    )
+    
+    local selected=()
+    checkbox_menu tools selected "開発ツールを選択"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install --cask docker ;;
+            1) brew install kubectl minikube helm ;;
+            2) brew install terraform ;;
+            3) brew install ansible ;;
+            4) brew install awscli ;;
+            5) brew install azure-cli ;;
+            6) brew install --cask google-cloud-sdk ;;
+            7) brew install --cask postman ;;
+            8) brew install --cask insomnia ;;
+            9) brew install --cask tableplus ;;
+            10) brew install --cask jetbrains-toolbox ;;
+            11) brew install --cask sublime-text ;;
+        esac
+    done
+}
+
+# モダンCLIツールのオプション
+install_modern_cli() {
+    local tools=(
+        "bat (better cat)"
+        "eza (better ls)"
+        "fd (better find)"
+        "ripgrep (better grep)"
+        "fzf (fuzzy finder)"
+        "zoxide (better cd)"
+        "delta (better diff)"
+        "lazygit (Git UI)"
+        "httpie (better curl)"
+        "tldr (simplified man pages)"
+        "dust (better du)"
+        "duf (better df)"
+        "bottom (better top)"
+        "procs (better ps)"
+    )
+    
+    local selected=()
+    checkbox_menu tools selected "モダンCLIツールを選択"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install bat ;;
+            1) brew install eza ;;
+            2) brew install fd ;;
+            3) brew install ripgrep ;;
+            4) brew install fzf ;;
+            5) brew install zoxide ;;
+            6) brew install git-delta ;;
+            7) brew install lazygit ;;
+            8) brew install httpie ;;
+            9) brew install tlrc ;;
+            10) brew install dust ;;
+            11) brew install duf ;;
+            12) brew install bottom ;;
+            13) brew install procs ;;
+        esac
+    done
+}
+
+# 生産性ツールのオプション
+install_productivity_tools() {
+    local tools=(
+        "Raycast (Spotlight alternative)"
+        "Alfred"
+        "1Password"
+        "Notion"
+        "Obsidian"
+        "Slack"
+        "Discord"
+        "Zoom"
+        "Firefox"
+        "Arc Browser"
+        "Brave Browser"
+        "Spotify"
+        "VLC"
+    )
+    
+    local selected=()
+    checkbox_menu tools selected "生産性ツールを選択"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install --cask raycast ;;
+            1) brew install --cask alfred ;;
+            2) brew install --cask 1password ;;
+            3) brew install --cask notion ;;
+            4) brew install --cask obsidian ;;
+            5) brew install --cask slack ;;
+            6) brew install --cask discord ;;
+            7) brew install --cask zoom ;;
+            8) brew install --cask firefox ;;
+            9) brew install --cask arc ;;
+            10) brew install --cask brave-browser ;;
+            11) brew install --cask spotify ;;
+            12) brew install --cask vlc ;;
+        esac
+    done
+}
+
+# Oh My Zshのセットアップ（基本）
+setup_oh_my_zsh() {
+    log "Oh My Zshをセットアップしています..."
+    
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        info "Oh My Zshをインストールしています..."
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    else
+        info "Oh My Zshは既にインストールされています ✓"
+    fi
+}
+
+# 基本的な設定ファイルの作成
+create_basic_config() {
+    log "基本的な設定ファイルを作成しています..."
+    
+    # 既存ファイルのバックアップ
+    for file in .zshrc .gitconfig; do
+        if [ -f "$HOME/$file" ]; then
+            cp "$HOME/$file" "$HOME/$file.backup"
+            info "$file をバックアップしました → $file.backup"
+        fi
+    done
+    
+    # 基本的な.zshrc
+    cat > "$HOME/.zshrc" << 'EOF'
+# Oh My Zsh
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="robbyrussell"
+plugins=(git)
+source $ZSH/oh-my-zsh.sh
+
+# Homebrew
+eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"
+
+# Language
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# Editor
+export EDITOR='vim'
+export VISUAL='vim'
+
+# Basic aliases
+alias ll='ls -la'
+alias la='ls -A'
+alias l='ls -CF'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias gs='git status'
+alias gc='git commit'
+alias gp='git push'
+alias gl='git pull'
+
+# Reload
+alias reload='source ~/.zshrc'
+
+# Load local config if exists
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
+EOF
+
+    # 基本的な.gitconfig
+    local git_email
+    echo -n "GitHubで使用するメールアドレスを入力してください: "
+    read git_email
+    
+    cat > "$HOME/.gitconfig" << EOF
+[user]
+    name = Your Name
+    email = $git_email
+
+[core]
+    editor = vim
+    autocrlf = input
+
+[init]
+    defaultBranch = main
+
+[pull]
+    rebase = true
+
+[push]
+    default = current
+
+[alias]
+    st = status
+    co = checkout
+    br = branch
+    ci = commit
+    lg = log --oneline --graph --decorate
+
+[credential]
+    helper = osxkeychain
+EOF
+}
+
+# SSH鍵の生成
+generate_ssh_key() {
+    log "SSH鍵を生成しています..."
+    
+    if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
+        local git_email
+        git_email=$(git config --global user.email)
+        
+        ssh-keygen -t ed25519 -C "$git_email" -f "$HOME/.ssh/id_ed25519" -N ""
+        
+        # SSH設定
+        cat >> "$HOME/.ssh/config" << EOF
+
+Host github.com
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentityFile ~/.ssh/id_ed25519
+EOF
+        
+        # 公開鍵をクリップボードにコピー
+        pbcopy < "$HOME/.ssh/id_ed25519.pub"
+        
+        info "SSH公開鍵がクリップボードにコピーされました"
+        info "GitHubの設定ページで追加してください: https://github.com/settings/keys"
+    else
+        info "SSH鍵は既に存在します ✓"
+    fi
+}
+
+# カスタムセットアップ
+custom_setup() {
+    while true; do
+        clear
+        echo -e "${CYAN}=== カスタムセットアップ ===${NC}"
+        echo "1) プログラミング言語"
+        echo "2) データベース"
+        echo "3) 開発ツール"
+        echo "4) モダンCLIツール"
+        echo "5) 生産性ツール"
+        echo "6) 基本セットアップに戻る"
+        echo -n "選択してください [1-6]: "
+        
+        read choice
+        case $choice in
+            1) install_programming_languages ;;
+            2) install_databases ;;
+            3) install_dev_tools ;;
+            4) install_modern_cli ;;
+            5) install_productivity_tools ;;
+            6) break ;;
+            *) warning "無効な選択です" ;;
+        esac
+    done
+}
+
+# フルセットアップ
+full_setup() {
+    log "フルセットアップを開始します..."
+    
+    # すべてのツールをインストール
+    brew install git gh git-lfs git-flow zsh bash tmux \
+        bat eza fd ripgrep fzf sd dust duf broot procs bottom zoxide tlrc \
+        node nvm python@3.12 pyenv pipenv go rust rbenv ruby-build \
+        yarn pnpm postgresql@16 mysql redis sqlite \
+        jq yq httpie wget tree ncdu htop neovim vim ag direnv starship \
+        docker docker-compose kubectl minikube helm terraform ansible \
+        awscli azure-cli gnupg pinentry-mac openssh openssl mas
+    
+    brew install --cask iterm2 visual-studio-code sublime-text jetbrains-toolbox \
+        docker postman insomnia tableplus sequel-ace mongodb-compass redis-insight \
+        rectangle raycast alfred 1password notion obsidian slack discord zoom \
+        google-chrome firefox arc brave-browser \
+        the-unarchiver appcleaner imageoptim handbrake vlc \
+        font-meslo-lg-nerd-font font-fira-code-nerd-font font-jetbrains-mono-nerd-font
+}
+
+# メイン関数
+main() {
+    clear
+    echo -e "${PURPLE}"
+    echo "╔══════════════════════════════════════════╗"
+    echo "║   Mac Developer Environment Setup v3.0   ║"
+    echo "╚══════════════════════════════════════════╝"
+    echo -e "${NC}"
+    
+    # 基本チェック
+    check_macos_version
+    detect_architecture
+    
+    # Xcode CLI Tools
+    install_xcode_cli
+    
+    # Homebrew
+    install_homebrew
+    
+    while true; do
+        show_menu
+        read choice
+        
+        case $choice in
+            1)
+                log "基本セットアップを開始します..."
+                install_basic_tools
+                setup_oh_my_zsh
+                create_basic_config
+                generate_ssh_key
+                info "基本セットアップが完了しました！"
+                ;;
+            2)
+                log "カスタムセットアップを開始します..."
+                install_basic_tools
+                setup_oh_my_zsh
+                create_basic_config
+                generate_ssh_key
+                custom_setup
+                info "カスタムセットアップが完了しました！"
+                ;;
+            3)
+                log "フルセットアップを開始します..."
+                full_setup
+                setup_oh_my_zsh
+                create_basic_config
+                generate_ssh_key
+                info "フルセットアップが完了しました！"
+                ;;
+            4)
+                info "セットアップを終了します"
+                exit 0
+                ;;
+            *)
+                warning "無効な選択です"
+                ;;
+        esac
+        
+        echo -e "\n${GREEN}セットアップが完了しました！${NC}"
+        echo "続けて他のセットアップを行いますか？"
+    done
+}
+
+# トラップの設定
+trap 'error "エラーが発生しました。スクリプトを終了します。"' ERR
+
+# メイン実行
+main "$@"
