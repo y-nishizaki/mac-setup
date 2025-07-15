@@ -1,0 +1,71 @@
+name: Test Script
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  syntax-check:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check script syntax
+      run: |
+        bash -n mac-setup-modular.sh
+        echo "✅ Script syntax is valid"
+    
+    - name: Check for common issues
+      run: |
+        # Check for hardcoded paths
+        if grep -n "/Users/[a-zA-Z]" mac-setup-modular.sh; then
+          echo "❌ Found hardcoded user paths"
+          exit 1
+        fi
+        
+        # Check for TODO comments
+        if grep -n "TODO\|FIXME" mac-setup-modular.sh; then
+          echo "⚠️ Found TODO/FIXME comments"
+        fi
+        
+        # Check for proper error handling
+        if ! grep -q "set -e" mac-setup-modular.sh; then
+          echo "❌ Missing 'set -e' for error handling"
+          exit 1
+        fi
+        
+        echo "✅ Basic checks passed"
+    
+    - name: Validate documentation
+      run: |
+        # Check if README exists and has required sections
+        if ! grep -q "## 使い方" README.md; then
+          echo "❌ README missing usage section"
+          exit 1
+        fi
+        
+        if ! grep -q "## 必要条件" README.md; then
+          echo "❌ README missing requirements section"
+          exit 1
+        fi
+        
+        echo "✅ Documentation validation passed"
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install ShellCheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shellcheck
+    
+    - name: Run ShellCheck
+      run: |
+        shellcheck mac-setup-modular.sh || true
+        echo "ℹ️ ShellCheck analysis completed"
