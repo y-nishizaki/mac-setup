@@ -299,7 +299,7 @@ install_programming_languages() {
                 brew install nvm node yarn pnpm
                 ;;
             1) # Python
-                brew install python@3.12 pyenv pipenv
+                brew install python@3.12 pyenv pipenv pipx
                 ;;
             2) # Go
                 brew install go

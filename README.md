@@ -35,7 +35,9 @@
 - Firefox、Brave、Arc（Chrome、Safariは既にインストール済み）
 
 #### プログラミング言語
-- Node.js, Python, Go, Rust, Ruby, Java, PHP, Kotlin, Swift
+- Node.js（nvm, yarn, pnpm含む）
+- Python（pyenv, pipenv, pipx含む）
+- Go, Rust, Ruby, Java, PHP, Kotlin, Swift
 
 #### データベース
 - PostgreSQL, MySQL, Redis, MongoDB, SQLite, Elasticsearch, Cassandra, Neo4j
