@@ -20,16 +20,19 @@
 ### 1. 基本セットアップ（推奨）
 誰でも使う基本的なツールのみをインストール：
 - **Git & GitHub CLI**: バージョン管理
-- **基本シェル**: Zsh, Bash
 - **基本エディタ**: Vim, VS Code
 - **基本CLI**: curl, wget, jq, tree
+- **モダンCLI**: bat, eza, fd, ripgrep, fzf, zoxide, delta, lazygit等
 - **iTerm2**: 高機能ターミナル
-- **Google Chrome**: ブラウザ
+- **Google Chrome**: 開発者向け標準ブラウザ
 - **Rectangle**: ウィンドウ管理
 - **Oh My Zsh**: Zshフレームワーク
 
 ### 2. カスタムセットアップ
 基本ツールに加えて、以下から必要なものを選択：
+
+#### 追加ブラウザ
+- Firefox、Brave、Arc（Chrome、Safariは既にインストール済み）
 
 #### プログラミング言語
 - Node.js, Python, Go, Rust, Ruby, Java, PHP, Kotlin, Swift
@@ -40,11 +43,13 @@
 #### 開発ツール
 - Docker, Kubernetes, Terraform, AWS CLI, Postman, JetBrains Toolbox等
 
-#### モダンCLIツール
-- bat, eza, fd, ripgrep, fzf, zoxide, delta, lazygit等
-
 #### 生産性ツール
-- Raycast, Alfred, 1Password, Notion, Slack, Firefox, Arc等
+
+**無料ツール:**
+- Raycast（無料版）、VLC、Discord（無料版）、Slack（無料版）、Obsidian（個人利用無料）
+
+**有料ツール（無料版あり）:**
+- Alfred（Powerpackは有料）、1Password（サブスク）、Notion（無料版は制限あり）、Zoom（無料版は40分制限）、Spotify（無料版は広告あり）
 
 ### 3. フルセットアップ
 すべてのツールを一括インストール（従来の動作）
@@ -74,10 +79,22 @@ chmod +x mac-setup-modular.sh
 ./mac-setup-modular.sh
 ```
 
-4. メニューから選択:
+4. メインメニューから選択:
    - **1) 基本セットアップのみ**: 最小限の必須ツールのみ
    - **2) カスタムセットアップ**: 必要なツールを選択してインストール
    - **3) フルセットアップ**: すべてのツールをインストール（従来の全部入りと同等）
+
+### カスタムセットアップでのツール選択方法
+
+カスタムセットアップでは、以下の操作でツールを選択できます：
+
+- **↑/↓ または j/k**: カーソルを上下に移動
+- **スペース または Enter**: 現在のアイテムを選択/解除
+- **数字キー（1-9）**: 直接その番号のアイテムにジャンプして選択/解除
+- **a**: すべてのアイテムを選択
+- **n**: すべての選択を解除
+- **d**: 選択を確定して次へ進む
+- **q**: 選択をキャンセルして前のメニューに戻る
 
 ## 実行時間
 

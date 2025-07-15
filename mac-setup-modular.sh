@@ -64,18 +64,29 @@ checkbox_menu() {
     local -n options=$1
     local -n selected=$2
     local title=$3
+    local current=0
     
     while true; do
         clear
         echo -e "${CYAN}=== $title ===${NC}"
-        echo "スペースキーで選択/解除、Enterで確定、qで戻る"
-        echo ""
+        echo -e "${YELLOW}操作方法:${NC}"
+        echo "  ↑/↓ または j/k: カーソル移動"
+        echo "  スペース または Enter: 選択/解除"
+        echo "  a: すべて選択  n: すべて解除"
+        echo "  d: 選択完了  q: キャンセル"
+        echo -e "${YELLOW}─────────────────────────────${NC}"
         
         for i in "${!options[@]}"; do
-            if [[ " ${selected[@]} " =~ " $i " ]]; then
-                echo -e "${GREEN}[✓]${NC} $((i+1)). ${options[$i]}"
+            if [ $i -eq $current ]; then
+                echo -n "▶ "
             else
-                echo -e "[ ] $((i+1)). ${options[$i]}"
+                echo -n "  "
+            fi
+            
+            if [[ " ${selected[@]} " =~ " $i " ]]; then
+                echo -e "${GREEN}[✓]${NC} ${options[$i]}"
+            else
+                echo -e "[ ] ${options[$i]}"
             fi
         done
         
@@ -83,11 +94,35 @@ checkbox_menu() {
         read -n 1 -s key
         
         case $key in
-            q|Q) break ;;
-            "") break ;;
+            q|Q) 
+                selected=()
+                break 
+                ;;
+            d|D) break ;;
+            a|A) 
+                selected=()
+                for i in "${!options[@]}"; do
+                    selected+=($i)
+                done
+                ;;
+            n|N) selected=() ;;
+            k|K|A) # 上矢印
+                ((current > 0)) && ((current--))
+                ;;
+            j|J|B) # 下矢印
+                ((current < ${#options[@]} - 1)) && ((current++))
+                ;;
+            " "|"") # スペースまたはEnter
+                if [[ " ${selected[@]} " =~ " $current " ]]; then
+                    selected=("${selected[@]/$current}")
+                else
+                    selected+=($current)
+                fi
+                ;;
             [1-9])
                 idx=$((key-1))
                 if [ $idx -lt ${#options[@]} ]; then
+                    current=$idx
                     if [[ " ${selected[@]} " =~ " $idx " ]]; then
                         selected=("${selected[@]/$idx}")
                     else
@@ -180,15 +215,27 @@ install_basic_tools() {
         "git"
         "gh"                  # GitHub CLI
         
-        # シェル関連
-        "zsh"
-        "bash"
-        
         # 基本的なCLIツール
         "curl"
         "wget"
         "tree"
         "jq"                  # JSON processor
+        
+        # モダンCLIツール（生産性向上）
+        "bat"                 # better cat
+        "eza"                 # better ls
+        "fd"                  # better find
+        "ripgrep"             # better grep
+        "fzf"                 # fuzzy finder
+        "zoxide"              # better cd
+        "git-delta"           # better diff
+        "lazygit"             # Git UI
+        "httpie"              # better curl
+        "tlrc"                # simplified man pages
+        "dust"                # better du
+        "duf"                 # better df
+        "bottom"              # better top
+        "procs"               # better ps
         
         # エディタ
         "vim"
@@ -207,8 +254,8 @@ install_basic_tools() {
         # エディタ
         "visual-studio-code"
         
-        # ブラウザ（最低限）
-        "google-chrome"
+        # ブラウザ
+        "google-chrome"       # 開発者向け標準ブラウザ
         
         # 生産性ツール
         "rectangle"           # ウィンドウ管理
@@ -355,84 +402,100 @@ install_dev_tools() {
     done
 }
 
-# モダンCLIツールのオプション
-install_modern_cli() {
-    local tools=(
-        "bat (better cat)"
-        "eza (better ls)"
-        "fd (better find)"
-        "ripgrep (better grep)"
-        "fzf (fuzzy finder)"
-        "zoxide (better cd)"
-        "delta (better diff)"
-        "lazygit (Git UI)"
-        "httpie (better curl)"
-        "tldr (simplified man pages)"
-        "dust (better du)"
-        "duf (better df)"
-        "bottom (better top)"
-        "procs (better ps)"
-    )
-    
-    local selected=()
-    checkbox_menu tools selected "モダンCLIツールを選択"
-    
-    for idx in "${selected[@]}"; do
-        case $idx in
-            0) brew install bat ;;
-            1) brew install eza ;;
-            2) brew install fd ;;
-            3) brew install ripgrep ;;
-            4) brew install fzf ;;
-            5) brew install zoxide ;;
-            6) brew install git-delta ;;
-            7) brew install lazygit ;;
-            8) brew install httpie ;;
-            9) brew install tlrc ;;
-            10) brew install dust ;;
-            11) brew install duf ;;
-            12) brew install bottom ;;
-            13) brew install procs ;;
+
+# 生産性ツールのオプション
+install_productivity_tools() {
+    while true; do
+        clear
+        echo -e "${CYAN}=== 生産性ツール ===${NC}"
+        echo "1) 無料ツール"
+        echo "2) 有料ツール（無料版あり）"
+        echo "3) 戻る"
+        echo -n "選択してください [1-3]: "
+        
+        read choice
+        case $choice in
+            1) install_free_productivity_tools ;;
+            2) install_paid_productivity_tools ;;
+            3) break ;;
+            *) warning "無効な選択です" ;;
         esac
     done
 }
 
-# 生産性ツールのオプション
-install_productivity_tools() {
+# 無料の生産性ツール
+install_free_productivity_tools() {
     local tools=(
-        "Raycast (Spotlight alternative)"
-        "Alfred"
-        "1Password"
-        "Notion"
-        "Obsidian"
-        "Slack"
-        "Discord"
-        "Zoom"
-        "Firefox"
-        "Arc Browser"
-        "Brave Browser"
-        "Spotify"
-        "VLC"
+        "Raycast - 高機能ランチャー（無料版）"
+        "VLC - 万能メディアプレイヤー"
+        "Discord - チャット（無料版）"
+        "Slack - ビジネスチャット（無料版）"
+        "Obsidian - ノートアプリ（個人利用無料）"
     )
     
     local selected=()
-    checkbox_menu tools selected "生産性ツールを選択"
+    checkbox_menu tools selected "無料の生産性ツールを選択"
     
     for idx in "${selected[@]}"; do
         case $idx in
             0) brew install --cask raycast ;;
-            1) brew install --cask alfred ;;
-            2) brew install --cask 1password ;;
-            3) brew install --cask notion ;;
+            1) brew install --cask vlc ;;
+            2) brew install --cask discord ;;
+            3) brew install --cask slack ;;
             4) brew install --cask obsidian ;;
-            5) brew install --cask slack ;;
-            6) brew install --cask discord ;;
-            7) brew install --cask zoom ;;
-            8) brew install --cask firefox ;;
-            9) brew install --cask arc ;;
-            10) brew install --cask brave-browser ;;
-            11) brew install --cask spotify ;;
-            12) brew install --cask vlc ;;
+        esac
+    done
+}
+
+# 追加ブラウザの選択（Chromeは基本セットアップに含まれます）
+install_browser() {
+    log "追加のブラウザを選択してください"
+    
+    local browsers=(
+        "Firefox - プライバシー重視のオープンソースブラウザ"
+        "Brave - 広告ブロック内蔵のプライバシー重視ブラウザ"
+        "Arc - 新しいコンセプトのブラウザ（招待制）"
+        "Safari - macOS標準（既にインストール済み）"
+    )
+    
+    echo -e "${YELLOW}注意: Google Chromeは基本セットアップでインストール済みです${NC}"
+    echo -e "${YELLOW}注意: Safariは既にmacOSに含まれています${NC}"
+    echo "追加でブラウザが必要な場合のみ選択してください"
+    echo ""
+    
+    local selected=()
+    checkbox_menu browsers selected "追加ブラウザを選択（複数選択可能ですが、通常は不要）"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install --cask firefox ;;
+            1) brew install --cask brave-browser ;;
+            2) brew install --cask arc ;;
+            3) info "Safariは既にインストールされています" ;;
+        esac
+    done
+}
+
+# 有料の生産性ツール（無料版があるものも含む）
+install_paid_productivity_tools() {
+    local tools=(
+        "Alfred - 高機能ランチャー（Powerpackは有料）"
+        "1Password - パスワード管理（サブスクリプション）"
+        "Notion - オールインワンワークスペース（無料版は制限あり）"
+        "Zoom - ビデオ会議（無料版は40分制限）"
+        "Spotify - 音楽ストリーミング（無料版は広告あり）"
+    )
+    
+    local selected=()
+    checkbox_menu tools selected "有料の生産性ツールを選択（無料版があるものも含む）"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install --cask alfred ;;
+            1) brew install --cask 1password ;;
+            2) brew install --cask notion ;;
+            3) brew install --cask zoom ;;
+            4) brew install --cask spotify ;;
         esac
     done
 }
@@ -567,20 +630,20 @@ custom_setup() {
     while true; do
         clear
         echo -e "${CYAN}=== カスタムセットアップ ===${NC}"
-        echo "1) プログラミング言語"
-        echo "2) データベース"
-        echo "3) 開発ツール"
-        echo "4) モダンCLIツール"
+        echo "1) 追加ブラウザ（Chrome/Safari以外が必要な場合）"
+        echo "2) プログラミング言語"
+        echo "3) データベース"
+        echo "4) 開発ツール"
         echo "5) 生産性ツール"
         echo "6) 基本セットアップに戻る"
         echo -n "選択してください [1-6]: "
         
         read choice
         case $choice in
-            1) install_programming_languages ;;
-            2) install_databases ;;
-            3) install_dev_tools ;;
-            4) install_modern_cli ;;
+            1) install_browser ;;
+            2) install_programming_languages ;;
+            3) install_databases ;;
+            4) install_dev_tools ;;
             5) install_productivity_tools ;;
             6) break ;;
             *) warning "無効な選択です" ;;
