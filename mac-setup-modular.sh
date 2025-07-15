@@ -543,19 +543,47 @@ export LC_ALL=en_US.UTF-8
 export EDITOR='vim'
 export VISUAL='vim'
 
+# Modern CLI aliases (replacing traditional commands)
+alias cat='bat'
+alias ls='eza'
+alias ll='eza -l --icons --git'
+alias la='eza -la --icons --git'
+alias lt='eza --tree --level=2'
+alias find='fd'
+alias grep='rg'
+alias du='dust'
+alias df='duf'
+alias ps='procs'
+alias top='btm'
+alias cd='z'
+
 # Basic aliases
-alias ll='ls -la'
-alias la='ls -A'
 alias l='ls -CF'
 alias ..='cd ..'
 alias ...='cd ../..'
+
+# Git aliases  
 alias gs='git status'
 alias gc='git commit'
 alias gp='git push'
 alias gl='git pull'
+alias gd='git diff'
+alias glog='git log --oneline --graph --decorate'
 
 # Reload
 alias reload='source ~/.zshrc'
+
+# Modern CLI tool initialization
+# FZF (if installed)
+if command -v fzf >/dev/null 2>&1; then
+    export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+    export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
+fi
+
+# Zoxide (better cd)
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init zsh)"
+fi
 
 # Load local config if exists
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
