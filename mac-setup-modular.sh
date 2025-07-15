@@ -654,6 +654,114 @@ EOF
 EOF
 }
 
+# macOSシステム設定の最適化
+configure_macos_settings() {
+    log "macOSシステム設定を最適化しています..."
+    
+    echo -n "開発者向けのmacOS設定を適用しますか？ [Y/n]: "
+    read apply_settings
+    
+    if [[ ! "$apply_settings" =~ ^[Nn]$ ]]; then
+        info "macOS設定を適用中..."
+        
+        # スリープ設定
+        info "スリープ設定を調整中..."
+        sudo pmset -c sleep 0                    # AC電源接続時はスリープしない
+        sudo pmset -c displaysleep 30            # ディスプレイは30分でスリープ
+        sudo pmset -b sleep 15                   # バッテリー時は15分でスリープ
+        sudo pmset -b displaysleep 5             # バッテリー時ディスプレイは5分でスリープ
+        
+        # Dock設定
+        info "Dock設定を調整中..."
+        defaults write com.apple.dock tilesize -int 40                       # Dockサイズを小さく
+        defaults write com.apple.dock minimize-to-application -bool true     # アプリケーションアイコンに最小化
+        
+        # Dockの自動的に隠す設定（選択制）
+        echo -n "Dockを自動的に隠すように設定しますか？ [y/N]: "
+        read hide_dock
+        if [[ "$hide_dock" =~ ^[Yy]$ ]]; then
+            defaults write com.apple.dock autohide -bool true
+            info "Dockを自動的に隠すように設定しました"
+        else
+            info "Dockの表示設定はそのままにします"
+        fi
+        
+        # 最近使用アプリの表示設定（選択制）
+        echo -n "Dockで最近使用したアプリを非表示にしますか？ [y/N]: "
+        read hide_recents
+        if [[ "$hide_recents" =~ ^[Yy]$ ]]; then
+            defaults write com.apple.dock show-recents -bool false
+            info "最近使用アプリを非表示に設定しました"
+        else
+            info "最近使用アプリの表示設定はそのままにします"
+        fi
+        
+        # Finder設定
+        info "Finder設定を調整中..."
+        defaults write com.apple.finder ShowPathbar -bool true               # パスバーを表示
+        defaults write com.apple.finder ShowStatusBar -bool true             # ステータスバーを表示
+        defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"  # 検索時は現在のフォルダを対象
+        defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false # 拡張子変更の警告を無効
+        defaults write com.apple.finder AppleShowAllFiles -bool true         # 隠しファイルを表示
+        
+        # スクリーンショット設定
+        info "スクリーンショット設定を調整中..."
+        defaults write com.apple.screencapture type -string "png"            # PNG形式で保存
+        defaults write com.apple.screencapture disable-shadow -bool true     # 影を無効化
+        
+        # スクリーンショット保存場所の選択
+        echo ""
+        echo "スクリーンショットの保存場所を選択してください:"
+        echo "1) デスクトップ（現在のmacOSデフォルト）"
+        echo "2) ~/Pictures/Screenshots（整理しやすい）"
+        echo -n "選択 [1-2, デフォルト: 1]: "
+        read screenshot_location
+        
+        case $screenshot_location in
+            2)
+                mkdir -p ~/Pictures/Screenshots
+                defaults write com.apple.screencapture location ~/Pictures/Screenshots
+                info "スクリーンショット保存場所を ~/Pictures/Screenshots に設定しました"
+                ;;
+            *)
+                defaults write com.apple.screencapture location ~/Desktop
+                info "スクリーンショット保存場所をデスクトップに設定しました"
+                ;;
+        esac
+        
+        # キーボード設定
+        info "キーボード設定を調整中..."
+        defaults write NSGlobalDomain KeyRepeat -int 2                       # キーリピート速度を最速に
+        defaults write NSGlobalDomain InitialKeyRepeat -int 15               # キーリピート開始を早く
+        defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false   # 長押しアクセント文字を無効
+        
+        # トラックパッド設定
+        info "トラックパッド設定を調整中..."
+        defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true # タップでクリック
+        defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+        
+        # メニューバー設定
+        info "メニューバー設定を調整中..."
+        defaults write com.apple.menuextra.clock DateFormat -string "EEE MMM d  HH:mm:ss"  # 時計表示を詳細に
+        
+        # セキュリティ設定
+        info "セキュリティ設定を調整中..."
+        defaults write com.apple.screensaver askForPassword -int 1           # スクリーンセーバー後パスワード要求
+        defaults write com.apple.screensaver askForPasswordDelay -int 0      # 即座にパスワード要求
+        
+        # 設定の反映
+        info "設定を反映中..."
+        killall Dock 2>/dev/null || true
+        killall Finder 2>/dev/null || true
+        killall SystemUIServer 2>/dev/null || true
+        
+        info "macOS設定の最適化が完了しました ✓"
+        warning "一部の設定は再起動後に反映されます"
+    else
+        info "macOS設定の変更をスキップしました"
+    fi
+}
+
 # SSH鍵の生成
 generate_ssh_key() {
     log "SSH鍵を生成しています..."
@@ -760,6 +868,7 @@ main() {
                 setup_oh_my_zsh
                 create_basic_config
                 generate_ssh_key
+                configure_macos_settings
                 info "基本セットアップが完了しました！"
                 ;;
             2)
@@ -768,6 +877,7 @@ main() {
                 setup_oh_my_zsh
                 create_basic_config
                 generate_ssh_key
+                configure_macos_settings
                 custom_setup
                 info "カスタムセットアップが完了しました！"
                 ;;
@@ -777,6 +887,7 @@ main() {
                 setup_oh_my_zsh
                 create_basic_config
                 generate_ssh_key
+                configure_macos_settings
                 info "フルセットアップが完了しました！"
                 ;;
             4)
