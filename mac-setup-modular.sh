@@ -212,11 +212,9 @@ install_basic_tools() {
     # 基本ツールのリスト
     local basic_tools=(
         # Git関連
-        "git"
         "gh"                  # GitHub CLI
         
         # 基本的なCLIツール
-        "curl"
         "wget"
         "tree"
         "jq"                  # JSON processor
@@ -237,12 +235,7 @@ install_basic_tools() {
         "bottom"              # better top
         "procs"               # better ps
         
-        # エディタ
-        "vim"
-        "nano"
-        
-        # 圧縮・解凍
-        "unzip"
+        # 圧縮・解凍（macOS標準のunzipでは不十分なもの）
         "p7zip"
     )
     
@@ -822,11 +815,11 @@ full_setup() {
     log "フルセットアップを開始します..."
     
     # すべてのツールをインストール
-    brew install git gh git-lfs git-flow zsh bash tmux \
+    brew install gh git-lfs git-flow tmux \
         bat eza fd ripgrep fzf sd dust duf broot procs bottom zoxide tlrc \
         node nvm python@3.12 pyenv pipenv go rust rbenv ruby-build \
         yarn pnpm postgresql@16 mysql redis sqlite \
-        jq yq httpie wget tree ncdu htop neovim vim ag direnv starship \
+        jq yq httpie wget tree ncdu htop neovim ag direnv starship \
         docker docker-compose kubectl minikube helm terraform ansible \
         awscli azure-cli gnupg pinentry-mac openssh openssl mas
     
