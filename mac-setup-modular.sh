@@ -746,6 +746,8 @@ configure_macos_settings() {
         # メニューバー設定
         info "メニューバー設定を調整中..."
         defaults write com.apple.menuextra.clock DateFormat -string "EEE MMM d  HH:mm:ss"  # 時計表示を詳細に
+        defaults write com.apple.menuextra.clock ShowSeconds -bool true                     # 秒を表示
+        defaults write com.apple.menuextra.clock FlashDateSeparators -bool true             # コロンを点滅
         
         # セキュリティ設定
         info "セキュリティ設定を調整中..."
