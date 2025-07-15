@@ -63,9 +63,17 @@
 
 ## 使い方
 
+### 方法1: ワンライナーで直接実行（推奨）
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/mac-setup-modular.sh)
+```
+
+### 方法2: クローンして実行
+
 1. リポジトリをクローン:
 ```bash
-git clone https://github.com/yourusername/mac-setup.git
+git clone https://github.com/y-nishizaki/mac-setup.git
 cd mac-setup
 ```
 
