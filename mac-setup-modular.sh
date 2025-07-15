@@ -589,14 +589,44 @@ fi
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 EOF
 
-    # 基本的な.gitconfig
-    local git_email
-    echo -n "GitHubで使用するメールアドレスを入力してください: "
-    read git_email
+    # Git設定の確認と作成
+    local git_name git_email current_name current_email update_git
+    
+    # 既存のGit設定を確認
+    current_name=$(git config --global user.name 2>/dev/null || echo "")
+    current_email=$(git config --global user.email 2>/dev/null || echo "")
+    
+    if [ -n "$current_name" ] && [ -n "$current_email" ]; then
+        echo -e "${YELLOW}既存のGit設定が見つかりました:${NC}"
+        echo "  user.name = $current_name"
+        echo "  user.email = $current_email"
+        echo ""
+        echo -n "この設定を変更しますか？ [y/N]: "
+        read update_git
+        
+        if [[ "$update_git" =~ ^[Yy]$ ]]; then
+            echo -n "user.name [$current_name]: "
+            read git_name
+            git_name=${git_name:-$current_name}
+            
+            echo -n "user.email [$current_email]: "
+            read git_email
+            git_email=${git_email:-$current_email}
+        else
+            git_name="$current_name"
+            git_email="$current_email"
+            info "既存のGit設定を使用します"
+        fi
+    else
+        echo -n "user.name: "
+        read git_name
+        echo -n "user.email: "
+        read git_email
+    fi
     
     cat > "$HOME/.gitconfig" << EOF
 [user]
-    name = Your Name
+    name = $git_name
     email = $git_email
 
 [core]
