@@ -41,7 +41,9 @@
 - PostgreSQL, MySQL, Redis, MongoDB, SQLite, Elasticsearch, Cassandra, Neo4j
 
 #### 開発ツール
-- Docker, Kubernetes, Terraform, AWS CLI, Postman, JetBrains Toolbox等
+- Docker, Kubernetes, Terraform, AWS CLI, Azure CLI, Google Cloud SDK
+- Vercel CLI, Supabase CLI, Render CLI（モダンデプロイツール）
+- Postman, Insomnia, TablePlus, JetBrains Toolbox等
 
 #### 生産性ツール
 

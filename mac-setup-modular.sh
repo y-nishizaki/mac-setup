@@ -367,6 +367,9 @@ install_dev_tools() {
         "AWS CLI"
         "Azure CLI"
         "Google Cloud SDK"
+        "Vercel CLI - フロントエンドデプロイ"
+        "Supabase CLI - BaaS開発"
+        "Render CLI - クラウドプラットフォーム"
         "Postman"
         "Insomnia"
         "TablePlus"
@@ -386,11 +389,14 @@ install_dev_tools() {
             4) brew install awscli ;;
             5) brew install azure-cli ;;
             6) brew install --cask google-cloud-sdk ;;
-            7) brew install --cask postman ;;
-            8) brew install --cask insomnia ;;
-            9) brew install --cask tableplus ;;
-            10) brew install --cask jetbrains-toolbox ;;
-            11) brew install --cask sublime-text ;;
+            7) npm install -g vercel ;;
+            8) npm install -g supabase ;;
+            9) npm install -g @render/cli ;;
+            10) brew install --cask postman ;;
+            11) brew install --cask insomnia ;;
+            12) brew install --cask tableplus ;;
+            13) brew install --cask jetbrains-toolbox ;;
+            14) brew install --cask sublime-text ;;
         esac
     done
 }
@@ -829,6 +835,9 @@ full_setup() {
         google-chrome firefox arc brave-browser \
         the-unarchiver appcleaner imageoptim handbrake vlc \
         font-meslo-lg-nerd-font font-fira-code-nerd-font font-jetbrains-mono-nerd-font
+    
+    # Modern deployment CLIs (npm global packages)
+    npm install -g vercel supabase @render/cli
 }
 
 # メイン関数
