@@ -300,6 +300,7 @@ install_programming_languages() {
                 ;;
             1) # Python
                 brew install python@3.12 pyenv pipenv pipx
+                pipx ensurepath
                 ;;
             2) # Go
                 brew install go
