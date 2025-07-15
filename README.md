@@ -43,6 +43,7 @@
 #### 開発ツール
 - Docker, Kubernetes, Terraform, AWS CLI, Azure CLI, Google Cloud SDK
 - Vercel CLI, Supabase CLI, Render CLI（モダンデプロイツール）
+- Claude Code CLI, Gemini CLI（AI開発支援ツール）
 - Postman, Insomnia, TablePlus, JetBrains Toolbox等
 
 #### 生産性ツール
@@ -181,8 +182,8 @@ chmod +x mac-setup-modular.sh
 
 ## バージョン履歴
 
-- **v3.0** (2025-01-15): モジュラー方式を採用、基本/カスタム/フルの3モード実装
-- **v2.0** (2025-01-15): 包括的な自動セットアップスクリプト
+- **v3.0** (2025-07-15): モジュラー方式を採用、基本/カスタム/フルの3モード実装
+- **v2.0** (2025-07-15): 包括的な自動セットアップスクリプト
 - **v1.0**: 初期バージョン
 
 ## ライセンス

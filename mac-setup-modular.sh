@@ -370,6 +370,8 @@ install_dev_tools() {
         "Vercel CLI - フロントエンドデプロイ"
         "Supabase CLI - BaaS開発"
         "Render CLI - クラウドプラットフォーム"
+        "Claude Code CLI - AI開発支援"
+        "Gemini CLI - Google AI"
         "Postman"
         "Insomnia"
         "TablePlus"
@@ -392,11 +394,13 @@ install_dev_tools() {
             7) npm install -g vercel ;;
             8) npm install -g supabase ;;
             9) npm install -g @render/cli ;;
-            10) brew install --cask postman ;;
-            11) brew install --cask insomnia ;;
-            12) brew install --cask tableplus ;;
-            13) brew install --cask jetbrains-toolbox ;;
-            14) brew install --cask sublime-text ;;
+            10) npm install -g @anthropic/claude-code ;;
+            11) npm install -g @google/generative-ai-cli ;;
+            12) brew install --cask postman ;;
+            13) brew install --cask insomnia ;;
+            14) brew install --cask tableplus ;;
+            15) brew install --cask jetbrains-toolbox ;;
+            16) brew install --cask sublime-text ;;
         esac
     done
 }
@@ -836,8 +840,8 @@ full_setup() {
         the-unarchiver appcleaner imageoptim handbrake vlc \
         font-meslo-lg-nerd-font font-fira-code-nerd-font font-jetbrains-mono-nerd-font
     
-    # Modern deployment CLIs (npm global packages)
-    npm install -g vercel supabase @render/cli
+    # Modern deployment and AI CLIs (npm global packages)
+    npm install -g vercel supabase @render/cli @anthropic/claude-code @google/generative-ai-cli
 }
 
 # メイン関数
