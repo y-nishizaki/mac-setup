@@ -2,6 +2,17 @@
 
 新しいMacを完璧な開発環境に変える、モジュラー式の自動セットアップスクリプト 🚀
 
+## 使い方
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/mac-setup-modular.sh)
+```
+
+メインメニューから選択:
+- **1) 基本セットアップのみ**: 最小限の必須ツールのみ
+- **2) カスタムセットアップ**: 必要なツールを選択してインストール
+- **3) フルセットアップ**: すべてのツールをインストール
+
 ## 概要
 
 このスクリプトは、新しいMacに開発者向けの環境を自動的に構築します。**バージョン3.0**からは、誰でも使う基本的なツールは自動インストール、人によって必要性が異なるツールは選択可能なモジュラー方式を採用しています。
@@ -48,13 +59,16 @@
 - Claude Code CLI, Gemini CLI（AI開発支援ツール）
 - Postman, Insomnia, TablePlus, JetBrains Toolbox等
 
-#### 生産性ツール
+#### 生産性＆メディアツール
 
-**無料ツール:**
-- Raycast（無料版）、VLC、Discord（無料版）、Slack（無料版）、Obsidian（個人利用無料）
+**生産性ツール（無料）:**
+- Raycast（無料版）、Discord（無料版）、Slack（無料版）、Obsidian（個人利用無料）
 
-**有料ツール（無料版あり）:**
-- Alfred（Powerpackは有料）、1Password（サブスク）、Notion（無料版は制限あり）、Zoom（無料版は40分制限）、Spotify（無料版は広告あり）
+**生産性ツール（有料版あり）:**
+- Alfred（Powerpackは有料）、1Password（サブスク）、Notion（無料版は制限あり）、Zoom（無料版は40分制限）
+
+**エンターテイメント＆メディア:**
+- VLC（万能メディアプレイヤー）、Spotify（音楽ストリーミング）、IINA（macOS向けメディアプレイヤー）、HandBrake（動画変換）、Audacity（オーディオ編集）
 
 ### 3. フルセットアップ
 すべてのツールを一括インストール（従来の動作）
@@ -92,37 +106,6 @@
 - 管理者権限
 - インターネット接続
 - 約50GBの空きディスク容量
-
-## 使い方
-
-### 方法1: ワンライナーで直接実行（推奨）
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/mac-setup-modular.sh)
-```
-
-### 方法2: クローンして実行
-
-1. リポジトリをクローン:
-```bash
-git clone https://github.com/y-nishizaki/mac-setup.git
-cd mac-setup
-```
-
-2. スクリプトに実行権限を付与:
-```bash
-chmod +x mac-setup-modular.sh
-```
-
-3. スクリプトを実行:
-```bash
-./mac-setup-modular.sh
-```
-
-4. メインメニューから選択:
-   - **1) 基本セットアップのみ**: 最小限の必須ツールのみ
-   - **2) カスタムセットアップ**: 必要なツールを選択してインストール
-   - **3) フルセットアップ**: すべてのツールをインストール（従来の全部入りと同等）
 
 ### カスタムセットアップでのツール選択方法
 
@@ -163,6 +146,24 @@ chmod +x mac-setup-modular.sh
 - `.tmux.conf` → `.tmux.conf.backup`
 
 ## トラブルシューティング
+
+### ワンライナーではなくクローンして実行したい場合
+
+1. リポジトリをクローン:
+```bash
+git clone https://github.com/y-nishizaki/mac-setup.git
+cd mac-setup
+```
+
+2. スクリプトに実行権限を付与:
+```bash
+chmod +x mac-setup-modular.sh
+```
+
+3. スクリプトを実行:
+```bash
+./mac-setup-modular.sh
+```
 
 ### Homebrewのインストールが失敗する
 ```bash

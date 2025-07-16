@@ -61,10 +61,13 @@ show_menu() {
 
 # チェックボックスメニュー関数
 checkbox_menu() {
-    local -n options=$1
-    local -n selected=$2
+    local options_var=$1
+    local selected_var=$2
     local title=$3
     local current=0
+    
+    # 配列を変数名経由で参照
+    eval "local options=(\"\${${options_var}[@]}\")"
     
     while true; do
         clear
@@ -83,7 +86,17 @@ checkbox_menu() {
                 echo -n "  "
             fi
             
-            if [[ " ${selected[@]} " =~ " $i " ]]; then
+            # 選択状態を確認
+            eval "local selected_items=(\"\${${selected_var}[@]}\")"
+            local is_selected=false
+            for sel in "${selected_items[@]}"; do
+                if [[ "$sel" == "$i" ]]; then
+                    is_selected=true
+                    break
+                fi
+            done
+            
+            if $is_selected; then
                 echo -e "${GREEN}[✓]${NC} ${options[$i]}"
             else
                 echo -e "[ ] ${options[$i]}"
@@ -95,17 +108,20 @@ checkbox_menu() {
         
         case $key in
             q|Q) 
-                selected=()
+                eval "${selected_var}=()"
                 break 
                 ;;
             d|D) break ;;
             a|A) 
-                selected=()
+                local all_selected=()
                 for i in "${!options[@]}"; do
-                    selected+=($i)
+                    all_selected+=("$i")
                 done
+                eval "${selected_var}=(\"\${all_selected[@]}\")"
                 ;;
-            n|N) selected=() ;;
+            n|N) 
+                eval "${selected_var}=()"
+                ;;
             k|K|A) # 上矢印
                 ((current > 0)) && ((current--))
                 ;;
@@ -113,21 +129,45 @@ checkbox_menu() {
                 ((current < ${#options[@]} - 1)) && ((current++))
                 ;;
             " "|"") # スペースまたはEnter
-                if [[ " ${selected[@]} " =~ " $current " ]]; then
-                    selected=("${selected[@]/$current}")
-                else
-                    selected+=($current)
+                eval "local selected_items=(\"\${${selected_var}[@]}\")"
+                local new_selected=()
+                local found=false
+                
+                for sel in "${selected_items[@]}"; do
+                    if [[ "$sel" == "$current" ]]; then
+                        found=true
+                    else
+                        new_selected+=("$sel")
+                    fi
+                done
+                
+                if ! $found; then
+                    new_selected+=("$current")
                 fi
+                
+                eval "${selected_var}=(\"\${new_selected[@]}\")"
                 ;;
             [1-9])
                 idx=$((key-1))
                 if [ $idx -lt ${#options[@]} ]; then
                     current=$idx
-                    if [[ " ${selected[@]} " =~ " $idx " ]]; then
-                        selected=("${selected[@]/$idx}")
-                    else
-                        selected+=($idx)
+                    eval "local selected_items=(\"\${${selected_var}[@]}\")"
+                    local new_selected=()
+                    local found=false
+                    
+                    for sel in "${selected_items[@]}"; do
+                        if [[ "$sel" == "$idx" ]]; then
+                            found=true
+                        else
+                            new_selected+=("$sel")
+                        fi
+                    done
+                    
+                    if ! $found; then
+                        new_selected+=("$idx")
                     fi
+                    
+                    eval "${selected_var}=(\"\${new_selected[@]}\")"
                 fi
                 ;;
         esac
@@ -291,7 +331,7 @@ install_programming_languages() {
     )
     
     local selected=()
-    checkbox_menu languages selected "プログラミング言語を選択"
+    checkbox_menu "languages" "selected" "プログラミング言語を選択"
     
     for idx in "${selected[@]}"; do
         case $idx in
@@ -342,7 +382,7 @@ install_databases() {
     )
     
     local selected=()
-    checkbox_menu databases selected "データベースを選択"
+    checkbox_menu "databases" "selected" "データベースを選択"
     
     for idx in "${selected[@]}"; do
         case $idx in
@@ -381,7 +421,7 @@ install_dev_tools() {
     )
     
     local selected=()
-    checkbox_menu tools selected "開発ツールを選択"
+    checkbox_menu "tools" "selected" "開発ツールを選択"
     
     for idx in "${selected[@]}"; do
         case $idx in
@@ -411,17 +451,19 @@ install_dev_tools() {
 install_productivity_tools() {
     while true; do
         clear
-        echo -e "${CYAN}=== 生産性ツール ===${NC}"
-        echo "1) 無料ツール"
-        echo "2) 有料ツール（無料版あり）"
-        echo "3) 戻る"
-        echo -n "選択してください [1-3]: "
+        echo -e "${CYAN}=== 生産性＆メディアツール ===${NC}"
+        echo "1) 生産性ツール（無料）"
+        echo "2) 生産性ツール（有料版あり）"
+        echo "3) エンターテイメント＆メディア"
+        echo "4) 戻る"
+        echo -n "選択してください [1-4]: "
         
         read choice
         case $choice in
             1) install_free_productivity_tools ;;
             2) install_paid_productivity_tools ;;
-            3) break ;;
+            3) install_entertainment_tools ;;
+            4) break ;;
             *) warning "無効な選択です" ;;
         esac
     done
@@ -431,22 +473,44 @@ install_productivity_tools() {
 install_free_productivity_tools() {
     local tools=(
         "Raycast - 高機能ランチャー（無料版）"
-        "VLC - 万能メディアプレイヤー"
         "Discord - チャット（無料版）"
         "Slack - ビジネスチャット（無料版）"
         "Obsidian - ノートアプリ（個人利用無料）"
     )
     
     local selected=()
-    checkbox_menu tools selected "無料の生産性ツールを選択"
+    checkbox_menu "tools" "selected" "無料の生産性ツールを選択"
     
     for idx in "${selected[@]}"; do
         case $idx in
             0) brew install --cask raycast ;;
-            1) brew install --cask vlc ;;
-            2) brew install --cask discord ;;
-            3) brew install --cask slack ;;
-            4) brew install --cask obsidian ;;
+            1) brew install --cask discord ;;
+            2) brew install --cask slack ;;
+            3) brew install --cask obsidian ;;
+        esac
+    done
+}
+
+# エンターテイメント＆メディアツール
+install_entertainment_tools() {
+    local tools=(
+        "VLC - 万能メディアプレイヤー"
+        "Spotify - 音楽ストリーミング（無料版）"
+        "IINA - macOS向けモダンメディアプレイヤー"
+        "HandBrake - 動画変換ツール"
+        "Audacity - オーディオ編集"
+    )
+    
+    local selected=()
+    checkbox_menu "tools" "selected" "エンターテイメント＆メディアツールを選択"
+    
+    for idx in "${selected[@]}"; do
+        case $idx in
+            0) brew install --cask vlc ;;
+            1) brew install --cask spotify ;;
+            2) brew install --cask iina ;;
+            3) brew install --cask handbrake ;;
+            4) brew install --cask audacity ;;
         esac
     done
 }
@@ -468,7 +532,7 @@ install_browser() {
     echo ""
     
     local selected=()
-    checkbox_menu browsers selected "追加ブラウザを選択（複数選択可能ですが、通常は不要）"
+    checkbox_menu "browsers" "selected" "追加ブラウザを選択（複数選択可能ですが、通常は不要）"
     
     for idx in "${selected[@]}"; do
         case $idx in
@@ -491,7 +555,7 @@ install_paid_productivity_tools() {
     )
     
     local selected=()
-    checkbox_menu tools selected "有料の生産性ツールを選択（無料版があるものも含む）"
+    checkbox_menu "tools" "selected" "有料の生産性ツールを選択（無料版があるものも含む）"
     
     for idx in "${selected[@]}"; do
         case $idx in
@@ -797,6 +861,37 @@ EOF
     fi
 }
 
+# 設定・環境構築メニュー
+setup_environment() {
+    while true; do
+        clear
+        echo -e "${CYAN}=== 設定・環境構築 ===${NC}"
+        echo "1) Oh My Zshをセットアップ"
+        echo "2) 基本設定ファイルを作成"
+        echo "3) SSH鍵を生成"
+        echo "4) macOSシステム設定を最適化"
+        echo "5) すべての設定を適用"
+        echo "6) 戻る"
+        echo -n "選択してください [1-6]: "
+        
+        read choice
+        case $choice in
+            1) setup_oh_my_zsh ;;
+            2) create_basic_config ;;
+            3) generate_ssh_key ;;
+            4) configure_macos_settings ;;
+            5) 
+                setup_oh_my_zsh
+                create_basic_config
+                generate_ssh_key
+                configure_macos_settings
+                ;;
+            6) break ;;
+            *) warning "無効な選択です" ;;
+        esac
+    done
+}
+
 # カスタムセットアップ
 custom_setup() {
     while true; do
@@ -806,9 +901,10 @@ custom_setup() {
         echo "2) プログラミング言語"
         echo "3) データベース"
         echo "4) 開発ツール"
-        echo "5) 生産性ツール"
-        echo "6) 基本セットアップに戻る"
-        echo -n "選択してください [1-6]: "
+        echo "5) 生産性＆メディアツール"
+        echo "6) 設定・環境構築"
+        echo "7) メインメニューに戻る"
+        echo -n "選択してください [1-7]: "
         
         read choice
         case $choice in
@@ -817,7 +913,8 @@ custom_setup() {
             3) install_databases ;;
             4) install_dev_tools ;;
             5) install_productivity_tools ;;
-            6) break ;;
+            6) setup_environment ;;
+            7) break ;;
             *) warning "無効な選択です" ;;
         esac
     done
@@ -883,10 +980,6 @@ main() {
             2)
                 log "カスタムセットアップを開始します..."
                 install_basic_tools
-                setup_oh_my_zsh
-                create_basic_config
-                generate_ssh_key
-                configure_macos_settings
                 custom_setup
                 info "カスタムセットアップが完了しました！"
                 ;;
