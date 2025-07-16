@@ -559,7 +559,7 @@ alias du='dust'
 alias df='duf'
 alias ps='procs'
 alias top='btm'
-alias cd='z'
+# Remove cd alias - zoxide will handle it via eval
 
 # Basic aliases
 alias l='ls -CF'
