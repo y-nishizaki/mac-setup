@@ -320,7 +320,8 @@ install_basic_tools() {
 install_programming_languages() {
     local languages=(
         "Node.js (nvm, npm, yarn, pnpm)"
-        "Python (pyenv, pip, pipenv)"
+        "Python (pyenv + pipenv/pipx)"
+        "Python (Miniconda)"
         "Go"
         "Rust"
         "Ruby (rbenv)"
@@ -338,30 +339,33 @@ install_programming_languages() {
             0) # Node.js
                 brew install nvm node yarn pnpm
                 ;;
-            1) # Python
+            1) # Python (pyenv)
                 brew install python@3.12 pyenv pipenv pipx
                 pipx ensurepath
                 setup_python_default
                 ;;
-            2) # Go
+            2) # Python (Miniconda)
+                setup_miniconda
+                ;;
+            3) # Go
                 brew install go
                 ;;
-            3) # Rust
+            4) # Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 ;;
-            4) # Ruby
+            5) # Ruby
                 brew install rbenv ruby-build
                 ;;
-            5) # Java
+            6) # Java
                 brew install openjdk
                 ;;
-            6) # PHP
+            7) # PHP
                 brew install php composer
                 ;;
-            7) # Kotlin
+            8) # Kotlin
                 brew install kotlin
                 ;;
-            8) # Swift
+            9) # Swift
                 # Xcodeに含まれている
                 info "SwiftはXcodeに含まれています"
                 ;;
@@ -638,6 +642,74 @@ setup_homebrew_python_fallback() {
     else
         warning "Python 3.12が見つかりません。インストールを確認してください。"
     fi
+}
+
+# Minicondaのセットアップ
+setup_miniconda() {
+    log "Minicondaをセットアップしています..."
+    
+    # pyenvとの競合チェック
+    if command -v pyenv &>/dev/null && pyenv versions --bare | grep -q .; then
+        warning "pyenvがインストールされており、Python環境が設定されています。"
+        warning "MinicondaとpyenvはPATHの競合を起こす可能性があります。"
+        read -p "それでもMinicondaをインストールしますか？ (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            info "Minicondaのインストールをスキップしました"
+            return
+        fi
+    fi
+    
+    # Minicondaのインストール
+    info "Minicondaをインストールしています..."
+    brew install --cask miniconda || {
+        error "Minicondaのインストールに失敗しました"
+        return 1
+    }
+    
+    # Minicondaのパスを設定（Apple SiliconとIntelで異なる）
+    local conda_base=""
+    if [ -d "/opt/homebrew/Caskroom/miniconda/base" ]; then
+        conda_base="/opt/homebrew/Caskroom/miniconda/base"
+    elif [ -d "/usr/local/Caskroom/miniconda/base" ]; then
+        conda_base="/usr/local/Caskroom/miniconda/base"
+    else
+        error "Minicondaのインストールパスが見つかりません"
+        return 1
+    fi
+    
+    # conda initを実行
+    info "conda initを実行しています..."
+    "$conda_base/bin/conda" init zsh || {
+        error "conda initの実行に失敗しました"
+        return 1
+    }
+    
+    # .condarc設定ファイルを作成（auto_activate_baseをfalseに設定）
+    if [ ! -f "$HOME/.condarc" ]; then
+        info ".condarcファイルを作成しています..."
+        cat > "$HOME/.condarc" << EOF
+auto_activate_base: false
+channels:
+  - defaults
+  - conda-forge
+EOF
+        info ".condarcファイルを作成しました ✓"
+    fi
+    
+    # pyenvとの共存設定のアドバイス
+    if command -v pyenv &>/dev/null; then
+        info ""
+        info "=== pyenvとcondaの共存について ==="
+        info "1. デフォルトではconda環境は自動的にアクティブ化されません（auto_activate_base: false）"
+        info "2. conda環境を使用する場合: conda activate <env_name>"
+        info "3. pyenv環境に戻る場合: conda deactivate"
+        info "4. 特定のプロジェクトでcondaを優先したい場合は、.envrcファイルの使用を推奨します"
+        info ""
+    fi
+    
+    info "Minicondaのセットアップが完了しました ✓"
+    info "新しいターミナルセッションでcondaコマンドが使用可能になります"
 }
 
 # Oh My Zshのセットアップ（基本）
