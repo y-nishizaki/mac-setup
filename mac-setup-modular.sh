@@ -341,6 +341,7 @@ install_programming_languages() {
             1) # Python
                 brew install python@3.12 pyenv pipenv pipx
                 pipx ensurepath
+                setup_python_default
                 ;;
             2) # Go
                 brew install go
@@ -566,6 +567,77 @@ install_paid_productivity_tools() {
             4) brew install --cask spotify ;;
         esac
     done
+}
+
+# Python 3.12をデフォルトに設定
+setup_python_default() {
+    log "Python 3.12をデフォルトに設定しています..."
+    
+    # pyenvがインストールされているか確認
+    if command -v pyenv &>/dev/null; then
+        info "pyenvを使用してPython 3.12を設定します..."
+        
+        # pyenv初期化設定を.zshrcに追加（既に存在する場合はスキップ）
+        if ! grep -q "pyenv init" "$HOME/.zshrc"; then
+            echo '' >> "$HOME/.zshrc"
+            echo '# Pyenv' >> "$HOME/.zshrc"
+            echo 'export PYENV_ROOT="$HOME/.pyenv"' >> "$HOME/.zshrc"
+            echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> "$HOME/.zshrc"
+            echo 'eval "$(pyenv init -)"' >> "$HOME/.zshrc"
+            info ".zshrcにpyenv設定を追加しました"
+        fi
+        
+        # 現在のシェルでpyenvを有効化
+        export PYENV_ROOT="$HOME/.pyenv"
+        export PATH="$PYENV_ROOT/bin:$PATH"
+        eval "$(pyenv init -)" 2>/dev/null || true
+        
+        # Python 3.12の最新版を確認してインストール
+        local python_version=$(pyenv install --list 2>/dev/null | grep -E "^\s*3\.12\.[0-9]+$" | tail -1 | xargs)
+        
+        if [ -n "$python_version" ]; then
+            info "Python $python_version をインストールします..."
+            pyenv install -s "$python_version" || {
+                warning "Python $python_version のインストールに失敗しました"
+                # HomebrewのPythonを使う代替設定
+                setup_homebrew_python_fallback
+                return
+            }
+            pyenv global "$python_version"
+            info "Python $python_version をデフォルトに設定しました ✓"
+        else
+            warning "Python 3.12バージョンが見つかりません"
+            setup_homebrew_python_fallback
+        fi
+    else
+        # pyenvがない場合はHomebrewのPythonを使う
+        setup_homebrew_python_fallback
+    fi
+}
+
+# HomebrewのPython 3.12を使う代替設定
+setup_homebrew_python_fallback() {
+    if [ -f "/opt/homebrew/opt/python@3.12/bin/python3.12" ] || [ -f "/usr/local/opt/python@3.12/bin/python3.12" ]; then
+        info "HomebrewのPython 3.12を使用します..."
+        
+        # PATH設定とエイリアスを.zshrcに追加
+        if ! grep -q "python@3.12" "$HOME/.zshrc"; then
+            echo '' >> "$HOME/.zshrc"
+            echo '# Python 3.12' >> "$HOME/.zshrc"
+            if [ -d "/opt/homebrew" ]; then
+                echo 'export PATH="/opt/homebrew/opt/python@3.12/bin:$PATH"' >> "$HOME/.zshrc"
+            else
+                echo 'export PATH="/usr/local/opt/python@3.12/bin:$PATH"' >> "$HOME/.zshrc"
+            fi
+            echo 'alias python="python3.12"' >> "$HOME/.zshrc"
+            echo 'alias python3="python3.12"' >> "$HOME/.zshrc"
+            echo 'alias pip="pip3.12"' >> "$HOME/.zshrc"
+            echo 'alias pip3="pip3.12"' >> "$HOME/.zshrc"
+            info "Homebrew Python 3.12の設定を追加しました ✓"
+        fi
+    else
+        warning "Python 3.12が見つかりません。インストールを確認してください。"
+    fi
 }
 
 # Oh My Zshのセットアップ（基本）
@@ -986,6 +1058,11 @@ main() {
             3)
                 log "フルセットアップを開始します..."
                 full_setup
+                # pipxがインストールされているか確認してensurepath実行
+                if command -v pipx &>/dev/null; then
+                    pipx ensurepath
+                fi
+                setup_python_default
                 setup_oh_my_zsh
                 create_basic_config
                 generate_ssh_key
