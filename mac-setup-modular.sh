@@ -346,6 +346,8 @@ install_programming_languages() {
                 ;;
             2) # Python (Miniconda)
                 setup_miniconda
+                brew install pipenv pipx
+                pipx ensurepath
                 ;;
             3) # Go
                 brew install go
