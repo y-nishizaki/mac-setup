@@ -764,7 +764,7 @@ alias ll='eza -l --icons --git'
 alias la='eza -la --icons --git'
 alias lt='eza --tree --level=2'
 alias find='fd'
-alias grep='rg'
+# alias grep='rg'  # grepエイリアスは無効化
 alias du='dust'
 alias df='duf'
 alias ps='procs'
