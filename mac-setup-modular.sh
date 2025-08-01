@@ -322,6 +322,7 @@ install_programming_languages() {
         "Node.js (nvm, npm, yarn, pnpm)"
         "Python (pyenv + pipenv/pipx)"
         "Python (Miniconda)"
+        "Python (uv - 高速パッケージマネージャー)"
         "Go"
         "Rust"
         "Ruby (rbenv)"
@@ -349,25 +350,33 @@ install_programming_languages() {
                 brew install pipenv pipx
                 pipx ensurepath
                 ;;
-            3) # Go
+            3) # Python (uv)
+                brew install uv
+                info "uvがインストールされました。uvはPythonバージョンの自動管理と高速パッケージ管理を提供します"
+                info "基本的な使い方:"
+                info "  uv init my-project    # 新しいプロジェクトを作成"
+                info "  uv add requests       # パッケージを追加"
+                info "  uv run python app.py # スクリプトを実行"
+                ;;
+            4) # Go
                 brew install go
                 ;;
-            4) # Rust
+            5) # Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 ;;
-            5) # Ruby
+            6) # Ruby
                 brew install rbenv ruby-build
                 ;;
-            6) # Java
+            7) # Java
                 brew install openjdk
                 ;;
-            7) # PHP
+            8) # PHP
                 brew install php composer
                 ;;
-            8) # Kotlin
+            9) # Kotlin
                 brew install kotlin
                 ;;
-            9) # Swift
+            10) # Swift
                 # Xcodeに含まれている
                 info "SwiftはXcodeに含まれています"
                 ;;
@@ -418,6 +427,7 @@ install_dev_tools() {
         "Vercel CLI - フロントエンドデプロイ"
         "Supabase CLI - BaaS開発"
         "Render CLI - クラウドプラットフォーム"
+        "UV - 高速Pythonパッケージマネージャー"
         "Claude Code CLI - AI開発支援"
         "Gemini CLI - Google AI"
         "Postman"
@@ -442,13 +452,14 @@ install_dev_tools() {
             7) npm install -g vercel ;;
             8) npm install -g supabase ;;
             9) npm install -g @render/cli ;;
-            10) npm install -g @anthropic/claude-code ;;
-            11) npm install -g @google/generative-ai-cli ;;
-            12) brew install --cask postman ;;
-            13) brew install --cask insomnia ;;
-            14) brew install --cask tableplus ;;
-            15) brew install --cask jetbrains-toolbox ;;
-            16) brew install --cask sublime-text ;;
+            10) brew install uv ;;
+            11) npm install -g @anthropic/claude-code ;;
+            12) npm install -g @google/generative-ai-cli ;;
+            13) brew install --cask postman ;;
+            14) brew install --cask insomnia ;;
+            15) brew install --cask tableplus ;;
+            16) brew install --cask jetbrains-toolbox ;;
+            17) brew install --cask sublime-text ;;
         esac
     done
 }
