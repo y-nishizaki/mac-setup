@@ -262,7 +262,6 @@ install_basic_tools() {
         # モダンCLIツール（生産性向上）
         "bat"                 # better cat
         "eza"                 # better ls
-        "fd"                  # better find
         "ripgrep"             # better grep
         "fzf"                 # fuzzy finder
         "zoxide"              # better cd
@@ -774,7 +773,6 @@ alias ls='eza'
 alias ll='eza -l --icons --git'
 alias la='eza -la --icons --git'
 alias lt='eza --tree --level=2'
-alias find='fd'
 # alias grep='rg'  # grepエイリアスは無効化
 alias du='dust'
 alias df='duf'
@@ -801,7 +799,7 @@ alias reload='source ~/.zshrc'
 # Modern CLI tool initialization
 # FZF (if installed)
 if command -v fzf >/dev/null 2>&1; then
-    export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+    export FZF_DEFAULT_COMMAND='find . -type f -not -path "*/\.git/*" 2>/dev/null'
     export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
 fi
 
@@ -1083,7 +1081,7 @@ full_setup() {
     
     # すべてのツールをインストール
     brew install gh git-lfs git-flow tmux \
-        bat eza fd ripgrep fzf sd dust duf broot procs bottom zoxide tlrc \
+        bat eza ripgrep fzf sd dust duf broot procs bottom zoxide tlrc \
         node nvm python@3.12 pyenv pipenv go rust rbenv ruby-build \
         yarn pnpm postgresql@16 mysql redis sqlite \
         jq yq httpie wget tree ncdu htop neovim ag direnv starship \
