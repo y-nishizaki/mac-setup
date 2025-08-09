@@ -429,6 +429,7 @@ install_dev_tools() {
         "UV - 高速Pythonパッケージマネージャー"
         "Claude Code CLI - AI開発支援"
         "Gemini CLI - Google AI"
+        "LM Studio - ローカルLLM実行環境"
         "Postman"
         "Insomnia"
         "TablePlus"
@@ -454,11 +455,12 @@ install_dev_tools() {
             10) brew install uv ;;
             11) npm install -g @anthropic/claude-code ;;
             12) npm install -g @google/generative-ai-cli ;;
-            13) brew install --cask postman ;;
-            14) brew install --cask insomnia ;;
-            15) brew install --cask tableplus ;;
-            16) brew install --cask jetbrains-toolbox ;;
-            17) brew install --cask sublime-text ;;
+            13) brew install --cask lm-studio ;;
+            14) brew install --cask postman ;;
+            15) brew install --cask insomnia ;;
+            16) brew install --cask tableplus ;;
+            17) brew install --cask jetbrains-toolbox ;;
+            18) brew install --cask sublime-text ;;
         esac
     done
 }
@@ -1052,24 +1054,26 @@ custom_setup() {
     while true; do
         clear
         echo -e "${CYAN}=== カスタムセットアップ ===${NC}"
-        echo "1) 追加ブラウザ（Chrome/Safari以外が必要な場合）"
-        echo "2) プログラミング言語"
-        echo "3) データベース"
-        echo "4) 開発ツール"
-        echo "5) 生産性＆メディアツール"
-        echo "6) 設定・環境構築"
-        echo "7) メインメニューに戻る"
-        echo -n "選択してください [1-7]: "
+        echo "1) 基本開発ツール（Git、エディタ、ターミナル等）"
+        echo "2) 追加ブラウザ（Chrome/Safari以外が必要な場合）"
+        echo "3) プログラミング言語"
+        echo "4) データベース"
+        echo "5) 開発ツール"
+        echo "6) 生産性＆メディアツール"
+        echo "7) 設定・環境構築"
+        echo "8) メインメニューに戻る"
+        echo -n "選択してください [1-8]: "
         
         read choice
         case $choice in
-            1) install_browser ;;
-            2) install_programming_languages ;;
-            3) install_databases ;;
-            4) install_dev_tools ;;
-            5) install_productivity_tools ;;
-            6) setup_environment ;;
-            7) break ;;
+            1) install_basic_tools ;;
+            2) install_browser ;;
+            3) install_programming_languages ;;
+            4) install_databases ;;
+            5) install_dev_tools ;;
+            6) install_productivity_tools ;;
+            7) setup_environment ;;
+            8) break ;;
             *) warning "無効な選択です" ;;
         esac
     done
@@ -1134,7 +1138,6 @@ main() {
                 ;;
             2)
                 log "カスタムセットアップを開始します..."
-                install_basic_tools
                 custom_setup
                 info "カスタムセットアップが完了しました！"
                 ;;
