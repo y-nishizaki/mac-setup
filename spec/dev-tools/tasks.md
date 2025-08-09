@@ -1,6 +1,7 @@
 # 開発ツール機能 実装タスク
 
 **関連仕様**: [requirements.md](./requirements.md) | [design.md](./design.md)
+**最終更新**: 2025-08-09
 
 ## Phase 1: 基盤構築
 
@@ -63,6 +64,14 @@
 - [x] Warpインストール
 - [x] Alacritty設定
 - [ ] Hyper設定
+
+## Phase 4.5: AI開発ツール
+
+### LM Studio
+- [x] 基本インストール処理
+- [ ] 初期設定ガイド
+- [ ] モデルダウンロード設定
+- [ ] APIサーバー設定例
 
 ## Phase 5: 品質保証
 

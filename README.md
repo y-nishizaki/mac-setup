@@ -9,9 +9,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/m
 ```
 
 メインメニューから選択:
-- **1) 基本セットアップのみ**: 最小限の必須ツールのみ
-- **2) カスタムセットアップ**: 必要なツールを選択してインストール
-- **3) フルセットアップ**: すべてのツールをインストール
+- **1) 基本セットアップのみ**: 誰でも使う必須ツールを自動インストール
+- **2) カスタムセットアップ**: すべてのツールを選択制でインストール（基本ツールも選択可能）
+- **3) フルセットアップ**: すべてのツールを一括インストール
 
 ## 概要
 
@@ -33,14 +33,17 @@ bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/m
 - **Git & GitHub CLI**: バージョン管理
 - **基本エディタ**: Vim, VS Code
 - **基本CLI**: curl, wget, jq, tree
-- **モダンCLI**: bat, eza, fd, ripgrep, fzf, zoxide, delta, lazygit等
+- **モダンCLI**: bat, eza, ripgrep, fzf, zoxide, delta, lazygit等
 - **iTerm2**: 高機能ターミナル
 - **Google Chrome**: 開発者向け標準ブラウザ
 - **Rectangle**: ウィンドウ管理
 - **Oh My Zsh**: Zshフレームワーク
 
 ### 2. カスタムセットアップ
-基本ツールに加えて、以下から必要なものを選択：
+必要なツールをカテゴリ別に選択してインストール：
+
+#### 基本開発ツール（選択可能）
+- Git、GitHub CLI、基本CLI、モダンCLI、エディタ、ターミナル等
 
 #### 追加ブラウザ
 - Firefox、Brave、Arc（Chrome、Safariは既にインストール済み）
@@ -48,6 +51,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/m
 #### プログラミング言語
 - Node.js（nvm, yarn, pnpm含む）
 - Python（pyenv, pipenv, pipx含む）
+- Python（Miniconda）
+- Python（uv - 高速パッケージマネージャー）
 - Go, Rust, Ruby, Java, PHP, Kotlin, Swift
 
 #### データベース
@@ -57,6 +62,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/m
 - Docker, Kubernetes, Terraform, AWS CLI, Azure CLI, Google Cloud SDK
 - Vercel CLI, Supabase CLI, Render CLI（モダンデプロイツール）
 - Claude Code CLI, Gemini CLI（AI開発支援ツール）
+- LM Studio（ローカルLLM実行環境）
 - Postman, Insomnia, TablePlus, JetBrains Toolbox等
 
 #### 生産性＆メディアツール
@@ -135,7 +141,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/y-nishizaki/mac-setup/main/m
 - **言語オプション**: `install_programming_languages()`関数
 - **データベース**: `install_databases()`関数
 - **開発ツール**: `install_dev_tools()`関数
-- **CLIツール**: `install_modern_cli()`関数
 - **生産性ツール**: `install_productivity_tools()`関数
 
 ## バックアップ
@@ -186,6 +191,7 @@ chmod +x mac-setup-modular.sh
 
 ## バージョン履歴
 
+- **v3.1** (2025-08-09): LM Studio追加、カスタムセットアップを完全選択制に変更
 - **v3.0** (2025-07-15): モジュラー方式を採用、基本/カスタム/フルの3モード実装
 - **v2.0** (2025-07-15): 包括的な自動セットアップスクリプト
 - **v1.0**: 初期バージョン
