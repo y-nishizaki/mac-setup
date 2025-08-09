@@ -74,6 +74,7 @@ install_basic_tools() {
         "htop"          # プロセス監視
         "ncdu"          # ディスク使用量
         "tldr"          # コマンド例
+        # 注：fdコマンド（better find）は削除済み。標準のfindコマンドを使用
     )
     
     log "基本開発ツールをインストール中..."
