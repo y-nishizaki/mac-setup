@@ -1,7 +1,7 @@
 # Ultimate Mac Developer Environment Setup Script 実装タスク
 
 **関連仕様**: [requirements.md](./requirements.md) | [design.md](./design.md)
-**最終更新**: 2025-07-23
+**最終更新**: 2026-06-03
 
 ## プロジェクト全体進捗
 
@@ -13,12 +13,12 @@
 
 ### 進行中タスク 🚧
 - [ ] スペック駆動開発ドキュメントの整備
-- [ ] テストフレームワークの導入
+- [x] テストフレームワークの導入（bats 関数単位テスト 14 件、CI 統合）
 
 ### 未着手タスク 📋
-- [ ] エラーハンドリングの強化
+- [x] エラーハンドリングの強化（`set -euo pipefail` + ERR trap + ログ保存 + state/resume）
 - [ ] パフォーマンス最適化
-- [ ] CI/CDパイプラインの構築
+- [x] CI/CDパイプラインの構築（shellcheck warning fail + bats を `.github/workflows/test.yml` に統合）
 
 ## Phase 1: ドキュメント整備 (Current)
 
@@ -46,24 +46,25 @@
 ## Phase 2: テスト基盤構築
 
 ### テストフレームワーク導入
-- [ ] batsテストフレームワークの導入
-- [ ] テストディレクトリ構造の作成
-- [ ] テスト実行スクリプトの作成
-- [ ] GitHub Actionsでのテスト自動化
+- [x] batsテストフレームワークの導入（`tests/helpers.bats`）
+- [x] テストディレクトリ構造の作成（`tests/`）
+- [x] テスト実行スクリプトの作成（`bats tests/`）
+- [x] GitHub Actionsでのテスト自動化（`bats` ジョブを追加）
 
 ### ユニットテスト作成
-- [ ] ユーティリティ関数のテスト
+- [x] ユーティリティ関数のテスト（brew 冪等ヘルパー / state 永続化 / parse_args）
 - [ ] システムチェック関数のテスト
-- [ ] インストール関数のモックテスト
-- [ ] メニューシステムのテスト
+- [x] インストール関数のモックテスト（`brew` スタブで brew_install_if_missing / brew_tap_if_missing を検証）
+- [ ] メニューシステムのテスト（対話的なため未対応）
 
 ## Phase 3: 機能改善
 
 ### エラーハンドリング強化
 - [ ] リトライメカニズムの実装
-- [ ] 詳細なエラーログの実装
+- [x] 詳細なエラーログの実装（`~/Library/Logs/mac-setup-YYYYMMDD.log` へ tee、ERR trap で失敗行を明示）
 - [ ] ロールバック機能の追加
 - [ ] エラー通知システムの統合
+- [x] Homebrew 冪等ヘルパー導入（brew_install_if_missing / brew_install_cask_if_missing / brew_tap_if_missing で再実行安全性を確保）
 
 ### パフォーマンス最適化
 - [ ] 並列インストールの実装
@@ -73,9 +74,10 @@
 
 ### ユーザビリティ向上
 - [ ] 設定プロファイルのサポート
-- [ ] ドライランモードの実装
-- [ ] 詳細ログ出力オプション
-- [ ] インストール済みツールの検出改善
+- [x] ドライランモードの実装（`--dry-run` で副作用なく実行予定を表示）
+- [x] 詳細ログ出力オプション（全出力をログファイルへ tee）
+- [x] インストール済みツールの検出改善（brew 冪等ヘルパー）
+- [x] 失敗時 resume / state 永続化（`--resume` + `~/.mac-setup-state.json` に各ステップの success/failed を記録）
 
 ## Phase 4: 品質保証
 
@@ -116,6 +118,13 @@
 | ドキュメント改善 | 中 | 中 | 4h |
 
 ## 最近の更新
+
+### 2026-06-03
+- [x] Homebrew 冪等ヘルパー（`brew_install_if_missing` / `brew_install_cask_if_missing` / `brew_tap_if_missing`）を導入し、全 `brew install` / `brew tap` を置換
+- [x] 失敗時 resume / state 永続化（`--resume` / `--dry-run` / `~/.mac-setup-state.json` / `track_step`）
+- [x] 厳格 bash 化（`set -euo pipefail`）+ ログ保存（`~/Library/Logs/mac-setup-YYYYMMDD.log`）+ ERR trap で失敗行明示
+- [x] `.shellcheckrc` 追加（eval 間接参照による誤検知のみホワイトリスト化）
+- [x] CI: shellcheck を `-S warning` で fail させ、bats ジョブ（14 テスト）を追加。`|| true` を削除
 
 ### 2025-08-09
 - [x] LM Studioを開発ツールリストに追加

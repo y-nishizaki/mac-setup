@@ -313,3 +313,33 @@ chmod +x mac-setup-modular.sh
 - 出力メッセージには既存のカラースキームに従う
 - 新しいツールを追加する前にbrewフォーミュラの利用可能性をテスト
 - 設定ファイルは読みやすく、適切にコメントを付ける
+
+## Homebrew 冪等ヘルパー
+
+`brew install` / `brew tap` を直接呼ばず、必ず冪等ヘルパー経由でインストールする。`set -e` 環境でもインストール済みパッケージで停止しないようにするため。
+
+- `brew_install_if_missing pkg1 pkg2 ...` - フォーミュラ。`brew list` で確認し未インストールのもののみ install
+- `brew_install_cask_if_missing cask1 cask2 ...` - cask。`brew list --cask` で確認
+- `brew_tap_if_missing tap` - tap。`brew tap` の一覧に無い場合のみ tap
+
+新しいツールを追加する際は上記ヘルパーを使うこと。複数パッケージは可変長引数でまとめて渡せる。
+
+## 厳格 bash・ログ・トラップ
+
+- スクリプト先頭は `set -euo pipefail`（未定義変数・パイプ中間失敗も検出）
+- 全出力を `~/Library/Logs/mac-setup-YYYYMMDD.log` に `tee` で保存（`--dry-run` 時は除く）
+- `trap ... ERR` で失敗行（`LINENO`）を明示
+- shellcheck は `.shellcheckrc` で除外コードを管理。CI（`.github/workflows/test.yml`）で `-S warning` を fail させる
+
+## CLI 引数・resume / dry-run
+
+- `--resume` : `~/.mac-setup-state.json` を読み、成功済みステップをスキップして再開
+- `--dry-run` : 副作用を起こさず実行予定を表示（ログ・state も書かない）
+- `--help` : 使い方を表示
+- 各 install/setup 関数は `track_step <step-name> <function>` でラップし、成功・失敗を state ファイルへ追記する
+
+## テスト（bats）
+
+- `tests/*.bats` に関数単位テストを配置（`.gitignore` の `test_*` / `*_test.sh` には該当しない命名）
+- ローカル実行: `bats tests/`（`brew install bats-core shellcheck` が必要）
+- CI で bats と shellcheck を実行
