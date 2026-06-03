@@ -7,7 +7,22 @@
 # このスクリプトは新しいMacを開発環境として完全にセットアップします
 # 基本的なツールは自動インストール、追加ツールは選択可能です
 
-set -e  # エラーが発生したら即座に終了
+set -euo pipefail  # エラー・未定義変数・パイプ中間失敗で即座に終了
+
+# 実行モードフラグ（CLI 引数で上書き）
+DRY_RUN=false       # --dry-run: 副作用なしで実行予定のみ表示
+RESUME=false        # --resume: state ファイルの成功済みステップをスキップ
+
+# アーキテクチャ関連のグローバル（detect_architecture で確定。set -u 対策で空初期化）
+arch=""
+HOMEBREW_PREFIX=""
+
+# state ファイル（各ステップの成功/失敗を永続化）
+STATE_FILE="${MAC_SETUP_STATE_FILE:-$HOME/.mac-setup-state.json}"
+
+# ログファイル（実行履歴）
+LOG_DIR="${MAC_SETUP_LOG_DIR:-$HOME/Library/Logs}"
+LOG_FILE="$LOG_DIR/mac-setup-$(date +'%Y%m%d').log"
 
 # カラー定義
 RED='\033[0;31m'
@@ -33,6 +48,188 @@ warning() {
 
 info() {
     echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+# Homebrew 冪等ヘルパー
+# 既にインストール済みのフォーミュラはスキップし、未インストールのもののみ install する。
+# set -e 環境でも install 済みパッケージで停止しないようにするための関数。
+brew_install_if_missing() {
+    local pkg
+    for pkg in "$@"; do
+        if brew list "$pkg" &>/dev/null; then
+            info "✓ $pkg は既にインストールされています"
+        else
+            brew install "$pkg"
+        fi
+    done
+}
+
+# cask 版の冪等ヘルパー
+brew_install_cask_if_missing() {
+    local cask
+    for cask in "$@"; do
+        if brew list --cask "$cask" &>/dev/null; then
+            info "✓ $cask (cask) は既にインストールされています"
+        else
+            brew install --cask "$cask"
+        fi
+    done
+}
+
+# tap が未登録の場合のみ tap する冪等ヘルパー
+brew_tap_if_missing() {
+    local tap="$1"
+    if brew tap | grep -q "^${tap}\$"; then
+        info "✓ tap $tap は既に登録されています"
+    else
+        brew tap "$tap"
+    fi
+}
+
+# ───────────────────────────────────────────────
+# state 永続化 / resume / dry-run サポート
+# ───────────────────────────────────────────────
+
+# state ファイルを初期化（存在しなければ空の JSON を作成）
+init_state_file() {
+    [ "$DRY_RUN" = true ] && return 0
+    if [ ! -f "$STATE_FILE" ]; then
+        printf '{\n  "steps": {}\n}\n' > "$STATE_FILE"
+    fi
+}
+
+# state ファイルから指定ステップの状態を取得（success / failed / 空文字）
+get_step_status() {
+    local step="$1"
+    [ -f "$STATE_FILE" ] || return 0
+    # "step": "status" 形式を grep して値を抽出（jq 非依存）
+    grep -oE "\"${step}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$STATE_FILE" 2>/dev/null \
+        | tail -1 \
+        | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/'
+}
+
+# state ファイルへステップの状態を記録（jq 非依存、行ベースで再構築）
+set_step_status() {
+    local step="$1"
+    local status="$2"
+    [ "$DRY_RUN" = true ] && return 0
+    init_state_file
+
+    local tmp
+    tmp="$(mktemp)"
+    # 既存の同名ステップ行を除去しつつ、steps オブジェクトを再構築
+    {
+        echo '{'
+        echo '  "steps": {'
+        # 既存エントリ（対象ステップ以外）を抽出
+        local entries
+        entries="$(grep -oE "\"[^\"]+\"[[:space:]]*:[[:space:]]*\"(success|failed|skipped)\"" "$STATE_FILE" 2>/dev/null \
+            | grep -vE "^\"${step}\"" || true)"
+        # 新しいエントリを末尾に追加
+        entries="$(printf '%s\n%s' "$entries" "\"${step}\": \"${status}\"" | grep -vE '^[[:space:]]*$')"
+        # カンマ区切りで出力
+        local first=true line
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            if [ "$first" = true ]; then
+                printf '    %s' "$line"
+                first=false
+            else
+                printf ',\n    %s' "$line"
+            fi
+        done <<< "$entries"
+        echo ''
+        echo '  },'
+        echo "  \"updated_at\": \"$(date +'%Y-%m-%dT%H:%M:%S')\""
+        echo '}'
+    } > "$tmp"
+    mv "$tmp" "$STATE_FILE"
+}
+
+# ステップをラップして実行する。
+# - --dry-run: 実行内容を表示するのみ
+# - --resume: state が success のステップはスキップ
+# - 実行後に成功/失敗を state へ記録
+track_step() {
+    local step="$1"
+    shift
+
+    if [ "$DRY_RUN" = true ]; then
+        info "[dry-run] ステップ実行予定: $step ($*)"
+        return 0
+    fi
+
+    if [ "$RESUME" = true ]; then
+        local prev
+        prev="$(get_step_status "$step")"
+        if [ "$prev" = "success" ]; then
+            info "⏭  $step は前回成功済みのためスキップします (--resume)"
+            return 0
+        fi
+    fi
+
+    log "▶ ステップ開始: $step"
+    if "$@"; then
+        set_step_status "$step" "success"
+        info "✓ ステップ成功: $step"
+        return 0
+    else
+        local rc=$?
+        set_step_status "$step" "failed"
+        error "✗ ステップ失敗: $step (exit=$rc)"
+        return "$rc"
+    fi
+}
+
+# ログ出力のセットアップ（全出力を tee でログファイルへ）
+setup_logging() {
+    [ "$DRY_RUN" = true ] && return 0
+    mkdir -p "$LOG_DIR" 2>/dev/null || true
+    # 標準出力・標準エラーをログファイルへも書き出す
+    exec > >(tee -a "$LOG_FILE") 2>&1
+    log "ログを記録します: $LOG_FILE"
+}
+
+# 使い方表示
+usage() {
+    cat << 'USAGE'
+Mac Developer Environment Setup Script
+
+使い方:
+  mac-setup-modular.sh [オプション]
+
+オプション:
+  --resume     前回の実行で成功したステップをスキップして再開する
+  --dry-run    副作用を起こさず、実行予定のステップを表示する
+  --help, -h   このヘルプを表示する
+
+state ファイル: ~/.mac-setup-state.json
+ログファイル:   ~/Library/Logs/mac-setup-YYYYMMDD.log
+USAGE
+}
+
+# CLI 引数の解析
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --resume)
+                RESUME=true
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                warning "不明なオプション: $1"
+                usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
 }
 
 # プログレスバー関数
@@ -87,9 +284,9 @@ checkbox_menu() {
             fi
             
             # 選択状態を確認
-            eval "local selected_items=(\"\${${selected_var}[@]}\")"
+            eval "local selected_items=(\${${selected_var}[@]+\"\${${selected_var}[@]}\"})"
             local is_selected=false
-            for sel in "${selected_items[@]}"; do
+            for sel in ${selected_items[@]+"${selected_items[@]}"}; do
                 if [[ "$sel" == "$i" ]]; then
                     is_selected=true
                     break
@@ -104,70 +301,71 @@ checkbox_menu() {
         done
         
         echo ""
-        read -n 1 -s key
-        
+        local key=""
+        read -rn 1 -s key
+
         case $key in
-            q|Q) 
+            q|Q)
                 eval "${selected_var}=()"
-                break 
+                break
                 ;;
             d|D) break ;;
-            a|A) 
+            a|A)
                 local all_selected=()
                 for i in "${!options[@]}"; do
                     all_selected+=("$i")
                 done
-                eval "${selected_var}=(\"\${all_selected[@]}\")"
+                eval "${selected_var}=(\${all_selected[@]+\"\${all_selected[@]}\"})"
                 ;;
-            n|N) 
+            n|N)
                 eval "${selected_var}=()"
                 ;;
-            k|K|A) # 上矢印
+            k|K) # 上矢印
                 ((current > 0)) && ((current--))
                 ;;
             j|J|B) # 下矢印
                 ((current < ${#options[@]} - 1)) && ((current++))
                 ;;
             " "|"") # スペースまたはEnter
-                eval "local selected_items=(\"\${${selected_var}[@]}\")"
+                eval "local selected_items=(\${${selected_var}[@]+\"\${${selected_var}[@]}\"})"
                 local new_selected=()
                 local found=false
-                
-                for sel in "${selected_items[@]}"; do
+
+                for sel in ${selected_items[@]+"${selected_items[@]}"}; do
                     if [[ "$sel" == "$current" ]]; then
                         found=true
                     else
                         new_selected+=("$sel")
                     fi
                 done
-                
+
                 if ! $found; then
                     new_selected+=("$current")
                 fi
-                
-                eval "${selected_var}=(\"\${new_selected[@]}\")"
+
+                eval "${selected_var}=(\${new_selected[@]+\"\${new_selected[@]}\"})"
                 ;;
             [1-9])
                 idx=$((key-1))
                 if [ $idx -lt ${#options[@]} ]; then
                     current=$idx
-                    eval "local selected_items=(\"\${${selected_var}[@]}\")"
+                    eval "local selected_items=(\${${selected_var}[@]+\"\${${selected_var}[@]}\"})"
                     local new_selected=()
                     local found=false
-                    
-                    for sel in "${selected_items[@]}"; do
+
+                    for sel in ${selected_items[@]+"${selected_items[@]}"}; do
                         if [[ "$sel" == "$idx" ]]; then
                             found=true
                         else
                             new_selected+=("$sel")
                         fi
                     done
-                    
+
                     if ! $found; then
                         new_selected+=("$idx")
                     fi
-                    
-                    eval "${selected_var}=(\"\${new_selected[@]}\")"
+
+                    eval "${selected_var}=(\${new_selected[@]+\"\${new_selected[@]}\"})"
                 fi
                 ;;
         esac
@@ -223,7 +421,12 @@ install_xcode_cli() {
 # Homebrewのインストール
 install_homebrew() {
     log "Homebrewをチェックしています..."
-    
+
+    # --resume 等で detect_architecture を経由していない場合に備えて補完
+    if [ -z "$arch" ]; then
+        arch=$(uname -m)
+    fi
+
     if ! command -v brew &> /dev/null; then
         info "Homebrewをインストールしています..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -334,23 +537,23 @@ install_programming_languages() {
     local selected=()
     checkbox_menu "languages" "selected" "プログラミング言語を選択"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
             0) # Node.js
-                brew install nvm node yarn pnpm
+                brew_install_if_missing nvm node yarn pnpm
                 ;;
             1) # Python (pyenv)
-                brew install python@3.12 pyenv pipenv pipx
+                brew_install_if_missing python@3.12 pyenv pipenv pipx
                 pipx ensurepath
                 setup_python_default
                 ;;
             2) # Python (Miniconda)
                 setup_miniconda
-                brew install pipenv pipx
+                brew_install_if_missing pipenv pipx
                 pipx ensurepath
                 ;;
             3) # Python (uv)
-                brew install uv
+                brew_install_if_missing uv
                 info "uvがインストールされました。uvはPythonバージョンの自動管理と高速パッケージ管理を提供します"
                 info "基本的な使い方:"
                 info "  uv init my-project    # 新しいプロジェクトを作成"
@@ -358,22 +561,22 @@ install_programming_languages() {
                 info "  uv run python app.py # スクリプトを実行"
                 ;;
             4) # Go
-                brew install go
+                brew_install_if_missing go
                 ;;
             5) # Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 ;;
             6) # Ruby
-                brew install rbenv ruby-build
+                brew_install_if_missing rbenv ruby-build
                 ;;
             7) # Java
-                brew install openjdk
+                brew_install_if_missing openjdk
                 ;;
             8) # PHP
-                brew install php composer
+                brew_install_if_missing php composer
                 ;;
             9) # Kotlin
-                brew install kotlin
+                brew_install_if_missing kotlin
                 ;;
             10) # Swift
                 # Xcodeに含まれている
@@ -399,16 +602,16 @@ install_databases() {
     local selected=()
     checkbox_menu "databases" "selected" "データベースを選択"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
-            0) brew install postgresql@16 ;;
-            1) brew install mysql ;;
-            2) brew install redis ;;
-            3) brew tap mongodb/brew && brew install mongodb-community ;;
-            4) brew install sqlite ;;
-            5) brew install elasticsearch ;;
-            6) brew install cassandra ;;
-            7) brew install neo4j ;;
+            0) brew_install_if_missing postgresql@16 ;;
+            1) brew_install_if_missing mysql ;;
+            2) brew_install_if_missing redis ;;
+            3) brew_tap_if_missing mongodb/brew && brew_install_if_missing mongodb-community ;;
+            4) brew_install_if_missing sqlite ;;
+            5) brew_install_if_missing elasticsearch ;;
+            6) brew_install_if_missing cassandra ;;
+            7) brew_install_if_missing neo4j ;;
         esac
     done
 }
@@ -440,27 +643,27 @@ install_dev_tools() {
     local selected=()
     checkbox_menu "tools" "selected" "開発ツールを選択"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
-            0) brew install --cask docker ;;
-            1) brew install kubectl minikube helm ;;
-            2) brew install terraform ;;
-            3) brew install ansible ;;
-            4) brew install awscli ;;
-            5) brew install azure-cli ;;
-            6) brew install --cask google-cloud-sdk ;;
+            0) brew_install_cask_if_missing docker ;;
+            1) brew_install_if_missing kubectl minikube helm ;;
+            2) brew_install_if_missing terraform ;;
+            3) brew_install_if_missing ansible ;;
+            4) brew_install_if_missing awscli ;;
+            5) brew_install_if_missing azure-cli ;;
+            6) brew_install_cask_if_missing google-cloud-sdk ;;
             7) npm install -g vercel ;;
             8) npm install -g supabase ;;
             9) npm install -g @render/cli ;;
-            10) brew install uv ;;
+            10) brew_install_if_missing uv ;;
             11) npm install -g @anthropic/claude-code ;;
             12) npm install -g @google/generative-ai-cli ;;
-            13) brew install --cask lm-studio ;;
-            14) brew install --cask postman ;;
-            15) brew install --cask insomnia ;;
-            16) brew install --cask tableplus ;;
-            17) brew install --cask jetbrains-toolbox ;;
-            18) brew install --cask sublime-text ;;
+            13) brew_install_cask_if_missing lm-studio ;;
+            14) brew_install_cask_if_missing postman ;;
+            15) brew_install_cask_if_missing insomnia ;;
+            16) brew_install_cask_if_missing tableplus ;;
+            17) brew_install_cask_if_missing jetbrains-toolbox ;;
+            18) brew_install_cask_if_missing sublime-text ;;
         esac
     done
 }
@@ -477,7 +680,7 @@ install_productivity_tools() {
         echo "4) 戻る"
         echo -n "選択してください [1-4]: "
         
-        read choice
+        read -r choice
         case $choice in
             1) install_free_productivity_tools ;;
             2) install_paid_productivity_tools ;;
@@ -500,12 +703,12 @@ install_free_productivity_tools() {
     local selected=()
     checkbox_menu "tools" "selected" "無料の生産性ツールを選択"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
-            0) brew install --cask raycast ;;
-            1) brew install --cask discord ;;
-            2) brew install --cask slack ;;
-            3) brew install --cask obsidian ;;
+            0) brew_install_cask_if_missing raycast ;;
+            1) brew_install_cask_if_missing discord ;;
+            2) brew_install_cask_if_missing slack ;;
+            3) brew_install_cask_if_missing obsidian ;;
         esac
     done
 }
@@ -523,13 +726,13 @@ install_entertainment_tools() {
     local selected=()
     checkbox_menu "tools" "selected" "エンターテイメント＆メディアツールを選択"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
-            0) brew install --cask vlc ;;
-            1) brew install --cask spotify ;;
-            2) brew install --cask iina ;;
-            3) brew install --cask handbrake ;;
-            4) brew install --cask audacity ;;
+            0) brew_install_cask_if_missing vlc ;;
+            1) brew_install_cask_if_missing spotify ;;
+            2) brew_install_cask_if_missing iina ;;
+            3) brew_install_cask_if_missing handbrake ;;
+            4) brew_install_cask_if_missing audacity ;;
         esac
     done
 }
@@ -553,11 +756,11 @@ install_browser() {
     local selected=()
     checkbox_menu "browsers" "selected" "追加ブラウザを選択（複数選択可能ですが、通常は不要）"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
-            0) brew install --cask firefox ;;
-            1) brew install --cask brave-browser ;;
-            2) brew install --cask arc ;;
+            0) brew_install_cask_if_missing firefox ;;
+            1) brew_install_cask_if_missing brave-browser ;;
+            2) brew_install_cask_if_missing arc ;;
             3) info "Safariは既にインストールされています" ;;
         esac
     done
@@ -576,13 +779,13 @@ install_paid_productivity_tools() {
     local selected=()
     checkbox_menu "tools" "selected" "有料の生産性ツールを選択（無料版があるものも含む）"
     
-    for idx in "${selected[@]}"; do
+    for idx in ${selected[@]+"${selected[@]}"}; do
         case $idx in
-            0) brew install --cask alfred ;;
-            1) brew install --cask 1password ;;
-            2) brew install --cask notion ;;
-            3) brew install --cask zoom ;;
-            4) brew install --cask spotify ;;
+            0) brew_install_cask_if_missing alfred ;;
+            1) brew_install_cask_if_missing 1password ;;
+            2) brew_install_cask_if_missing notion ;;
+            3) brew_install_cask_if_missing zoom ;;
+            4) brew_install_cask_if_missing spotify ;;
         esac
     done
 }
@@ -611,7 +814,8 @@ setup_python_default() {
         eval "$(pyenv init -)" 2>/dev/null || true
         
         # Python 3.12の最新版を確認してインストール
-        local python_version=$(pyenv install --list 2>/dev/null | grep -E "^\s*3\.12\.[0-9]+$" | tail -1 | xargs)
+        local python_version
+        python_version=$(pyenv install --list 2>/dev/null | grep -E "^\s*3\.12\.[0-9]+$" | tail -1 | xargs)
         
         if [ -n "$python_version" ]; then
             info "Python $python_version をインストールします..."
@@ -676,7 +880,7 @@ setup_miniconda() {
     
     # Minicondaのインストール
     info "Minicondaをインストールしています..."
-    brew install --cask miniconda || {
+    brew_install_cask_if_missing miniconda || {
         error "Minicondaのインストールに失敗しました"
         return 1
     }
@@ -827,15 +1031,15 @@ EOF
         echo "  user.email = $current_email"
         echo ""
         echo -n "この設定を変更しますか？ [y/N]: "
-        read update_git
+        read -r update_git
         
         if [[ "$update_git" =~ ^[Yy]$ ]]; then
             echo -n "user.name [$current_name]: "
-            read git_name
+            read -r git_name
             git_name=${git_name:-$current_name}
             
             echo -n "user.email [$current_email]: "
-            read git_email
+            read -r git_email
             git_email=${git_email:-$current_email}
         else
             git_name="$current_name"
@@ -844,9 +1048,9 @@ EOF
         fi
     else
         echo -n "user.name: "
-        read git_name
+        read -r git_name
         echo -n "user.email: "
-        read git_email
+        read -r git_email
     fi
     
     cat > "$HOME/.gitconfig" << EOF
@@ -884,7 +1088,7 @@ configure_macos_settings() {
     log "macOSシステム設定を最適化しています..."
     
     echo -n "開発者向けのmacOS設定を適用しますか？ [Y/n]: "
-    read apply_settings
+    read -r apply_settings
     
     if [[ ! "$apply_settings" =~ ^[Nn]$ ]]; then
         info "macOS設定を適用中..."
@@ -903,7 +1107,7 @@ configure_macos_settings() {
         
         # Dockの自動的に隠す設定（選択制）
         echo -n "Dockを自動的に隠すように設定しますか？ [y/N]: "
-        read hide_dock
+        read -r hide_dock
         if [[ "$hide_dock" =~ ^[Yy]$ ]]; then
             defaults write com.apple.dock autohide -bool true
             info "Dockを自動的に隠すように設定しました"
@@ -913,7 +1117,7 @@ configure_macos_settings() {
         
         # 最近使用アプリの表示設定（選択制）
         echo -n "Dockで最近使用したアプリを非表示にしますか？ [y/N]: "
-        read hide_recents
+        read -r hide_recents
         if [[ "$hide_recents" =~ ^[Yy]$ ]]; then
             defaults write com.apple.dock show-recents -bool false
             info "最近使用アプリを非表示に設定しました"
@@ -940,7 +1144,7 @@ configure_macos_settings() {
         echo "1) デスクトップ（現在のmacOSデフォルト）"
         echo "2) ~/Pictures/Screenshots（整理しやすい）"
         echo -n "選択 [1-2, デフォルト: 1]: "
-        read screenshot_location
+        read -r screenshot_location
         
         case $screenshot_location in
             2)
@@ -1031,7 +1235,7 @@ setup_environment() {
         echo "6) 戻る"
         echo -n "選択してください [1-6]: "
         
-        read choice
+        read -r choice
         case $choice in
             1) setup_oh_my_zsh ;;
             2) create_basic_config ;;
@@ -1064,7 +1268,7 @@ custom_setup() {
         echo "8) メインメニューに戻る"
         echo -n "選択してください [1-8]: "
         
-        read choice
+        read -r choice
         case $choice in
             1) install_basic_tools ;;
             2) install_browser ;;
@@ -1084,15 +1288,15 @@ full_setup() {
     log "フルセットアップを開始します..."
     
     # すべてのツールをインストール
-    brew install gh git-lfs git-flow tmux \
+    brew_install_if_missing gh git-lfs git-flow tmux \
         bat eza ripgrep fzf sd dust duf broot procs bottom zoxide tlrc \
         node nvm python@3.12 pyenv pipenv go rust rbenv ruby-build \
         yarn pnpm postgresql@16 mysql redis sqlite \
         jq yq httpie wget tree ncdu htop neovim ag direnv starship \
         docker docker-compose kubectl minikube helm terraform ansible \
         awscli azure-cli gnupg pinentry-mac openssh openssl mas
-    
-    brew install --cask iterm2 visual-studio-code sublime-text jetbrains-toolbox \
+
+    brew_install_cask_if_missing iterm2 visual-studio-code sublime-text jetbrains-toolbox \
         docker postman insomnia tableplus sequel-ace mongodb-compass redis-insight \
         rectangle raycast alfred 1password notion obsidian slack discord zoom \
         google-chrome firefox arc brave-browser \
@@ -1103,38 +1307,85 @@ full_setup() {
     npm install -g vercel supabase @render/cli @anthropic/claude-code @google/generative-ai-cli
 }
 
+# 基本セットアップ（各ステップを track_step でラップ）
+run_basic_setup() {
+    log "基本セットアップを開始します..."
+    track_step "install_basic_tools" install_basic_tools
+    track_step "setup_oh_my_zsh" setup_oh_my_zsh
+    track_step "create_basic_config" create_basic_config
+    track_step "generate_ssh_key" generate_ssh_key
+    track_step "configure_macos_settings" configure_macos_settings
+    info "基本セットアップが完了しました！"
+}
+
+# フルセットアップ（各ステップを track_step でラップ）
+run_full_setup() {
+    log "フルセットアップを開始します..."
+    track_step "full_setup" full_setup
+    # pipxがインストールされているか確認してensurepath実行
+    if command -v pipx &>/dev/null; then
+        pipx ensurepath
+    fi
+    track_step "setup_python_default" setup_python_default
+    track_step "setup_oh_my_zsh" setup_oh_my_zsh
+    track_step "create_basic_config" create_basic_config
+    track_step "generate_ssh_key" generate_ssh_key
+    track_step "configure_macos_settings" configure_macos_settings
+    info "フルセットアップが完了しました！"
+}
+
+# dry-run 時に実行予定を表示
+show_dry_run_plan() {
+    info "[dry-run] 以下のステップが実行されます（副作用なし）:"
+    info "  基本チェック: check_macos_version / detect_architecture"
+    info "  前提: install_xcode_cli / install_homebrew"
+    info "  基本セットアップ (メニュー 1):"
+    info "    install_basic_tools → setup_oh_my_zsh → create_basic_config → generate_ssh_key → configure_macos_settings"
+    info "  フルセットアップ (メニュー 3):"
+    info "    full_setup → setup_python_default → setup_oh_my_zsh → create_basic_config → generate_ssh_key → configure_macos_settings"
+    info "  カスタムセットアップ (メニュー 2): 対話的に各カテゴリを選択"
+    info "[dry-run] state ファイル・ログは書き込まれません。"
+}
+
 # メイン関数
 main() {
+    parse_args "$@"
+    setup_logging
+
     clear
     echo -e "${PURPLE}"
     echo "╔══════════════════════════════════════════╗"
     echo "║   Mac Developer Environment Setup v3.0   ║"
     echo "╚══════════════════════════════════════════╝"
     echo -e "${NC}"
-    
+
+    [ "$RESUME" = true ] && info "--resume: 前回成功済みのステップはスキップします (state: $STATE_FILE)"
+
+    # dry-run は実行予定を表示して終了
+    if [ "$DRY_RUN" = true ]; then
+        show_dry_run_plan
+        exit 0
+    fi
+
+    init_state_file
+
     # 基本チェック
-    check_macos_version
-    detect_architecture
-    
+    track_step "check_macos_version" check_macos_version
+    track_step "detect_architecture" detect_architecture
+
     # Xcode CLI Tools
-    install_xcode_cli
-    
+    track_step "install_xcode_cli" install_xcode_cli
+
     # Homebrew
-    install_homebrew
-    
+    track_step "install_homebrew" install_homebrew
+
     while true; do
         show_menu
-        read choice
-        
+        read -r choice
+
         case $choice in
             1)
-                log "基本セットアップを開始します..."
-                install_basic_tools
-                setup_oh_my_zsh
-                create_basic_config
-                generate_ssh_key
-                configure_macos_settings
-                info "基本セットアップが完了しました！"
+                run_basic_setup
                 ;;
             2)
                 log "カスタムセットアップを開始します..."
@@ -1142,18 +1393,7 @@ main() {
                 info "カスタムセットアップが完了しました！"
                 ;;
             3)
-                log "フルセットアップを開始します..."
-                full_setup
-                # pipxがインストールされているか確認してensurepath実行
-                if command -v pipx &>/dev/null; then
-                    pipx ensurepath
-                fi
-                setup_python_default
-                setup_oh_my_zsh
-                create_basic_config
-                generate_ssh_key
-                configure_macos_settings
-                info "フルセットアップが完了しました！"
+                run_full_setup
                 ;;
             4)
                 info "セットアップを終了します"
@@ -1163,14 +1403,17 @@ main() {
                 warning "無効な選択です"
                 ;;
         esac
-        
+
         echo -e "\n${GREEN}セットアップが完了しました！${NC}"
         echo "続けて他のセットアップを行いますか？"
     done
 }
 
-# トラップの設定
-trap 'error "エラーが発生しました。スクリプトを終了します。"' ERR
+# トラップの設定（失敗した行番号を明示）
+trap 'error "エラーが発生しました (行 ${LINENO})。スクリプトを終了します。"' ERR
 
 # メイン実行
-main "$@"
+# bats 等から source される場合（MAC_SETUP_SOURCED=1）は main を実行しない。
+if [ "${MAC_SETUP_SOURCED:-0}" != "1" ]; then
+    main "$@"
+fi
