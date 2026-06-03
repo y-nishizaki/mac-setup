@@ -1,0 +1,16 @@
+# ShellCheck 設定（mac-setup-modular.sh 用）
+#
+# CI では `shellcheck -S warning mac-setup-modular.sh` を warning 以上で fail させる。
+# 下記コードはスクリプトの設計上どうしても発生する誤検知（false positive）のため
+# 明示的に無効化する。新しい警告は原則修正すること。
+
+# SC2034: 変数が未使用に見える
+#   checkbox_menu() は配列名を文字列で受け取り eval で間接参照するため、
+#   languages / databases / browsers / tools 等は実際には使用されているが
+#   ShellCheck が静的に追跡できない。HOMEBREW_PREFIX は Homebrew が参照する環境変数。
+disable=SC2034
+
+# SC2154: 変数が代入されていないのに参照されている
+#   options / selected_items は eval "local options=(...)" で動的に代入されるため
+#   ShellCheck が代入を追跡できない。
+disable=SC2154

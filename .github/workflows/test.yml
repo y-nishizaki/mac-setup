@@ -31,12 +31,12 @@ jobs:
           echo "⚠️ Found TODO/FIXME comments"
         fi
         
-        # Check for proper error handling
-        if ! grep -q "set -e" mac-setup-modular.sh; then
-          echo "❌ Missing 'set -e' for error handling"
+        # Check for proper error handling (strict bash)
+        if ! grep -q "set -euo pipefail" mac-setup-modular.sh; then
+          echo "❌ Missing 'set -euo pipefail' for strict error handling"
           exit 1
         fi
-        
+
         echo "✅ Basic checks passed"
     
     - name: Validate documentation
@@ -56,16 +56,33 @@ jobs:
 
   shellcheck:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install ShellCheck
       run: |
         sudo apt-get update
         sudo apt-get install -y shellcheck
-    
+
     - name: Run ShellCheck
       run: |
-        shellcheck mac-setup-modular.sh || true
-        echo "ℹ️ ShellCheck analysis completed"
+        # .shellcheckrc の除外設定を尊重しつつ warning 以上を fail させる
+        shellcheck -S warning mac-setup-modular.sh
+        echo "✅ ShellCheck passed (warning level)"
+
+  bats:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install bats
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bats
+
+    - name: Run bats tests
+      run: |
+        bats tests/
+        echo "✅ bats tests passed"
